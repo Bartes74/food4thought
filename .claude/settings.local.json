@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(bash:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node:*)",
+      "Bash(nslookup:*)",
+      "Bash(rm:*)",
+      "Bash(./start.sh:*)",
+      "Bash(./stop.sh)",
+      "Bash(python3:*)",
+      "Bash(npm run preview:*)"
+    ],
+    "deny": []
+  }
+}
