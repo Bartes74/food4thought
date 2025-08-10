@@ -23,9 +23,9 @@ const db = new SQLite3.Database(dbPath, (err) => {
 
 console.log('🧹 Rozpoczynam czyszczenie duplikatów serii...');
 
-db.serialize(() => {
+getDb().serialize(() => {
   // Najpierw pokaż duplikaty
-  db.all(`
+  getDb().all(`
     SELECT name, COUNT(*) as count 
     FROM series 
     GROUP BY name 
@@ -38,14 +38,14 @@ db.serialize(() => {
     
     if (duplicates.length === 0) {
       console.log('✅ Brak duplikatów serii');
-      db.close();
+      getDb().close();
       return;
     }
     
     console.log(`⚠️  Znaleziono duplikaty dla: ${duplicates.map(d => d.name).join(', ')}`);
     
     // Usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
-    db.run(`
+    getDb().run(`
       DELETE FROM series 
       WHERE id NOT IN (
         SELECT MIN(id) 
@@ -60,7 +60,7 @@ db.serialize(() => {
       }
       
       // Pokaż końcowy stan
-      db.all(`SELECT id, name, episode_count FROM series ORDER BY name`, (err, series) => {
+      getDb().all(`SELECT id, name, episode_count FROM series ORDER BY name`, (err, series) => {
         if (!err) {
           console.log('\n📋 Aktualne serie:');
           series.forEach(s => {
@@ -68,7 +68,7 @@ db.serialize(() => {
           });
         }
         
-        db.close();
+        getDb().close();
       });
     });
   });

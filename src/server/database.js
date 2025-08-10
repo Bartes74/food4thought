@@ -1,108 +1,124 @@
 import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 
+// Enable SQLite WAL mode for better concurrency
+const SQLITE_BUSY_TIMEOUT = 5000; // 5 seconds
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const { verbose } = sqlite3;
-const SQLite3 = verbose();
+/**
+ * Initialize the database tables and schema
+ * @param {import('sqlite').Database} db - Database connection
+ * @returns {Promise<void>}
+ */
+async function initDatabase(db) {
+  // Database version for migrations
+  const DB_VERSION = 1;
+  
+  try {
+    // Sprawdź wersję bazy danych
+    const versionResult = await db.get('PRAGMA user_version');
+    const currentVersion = versionResult ? versionResult.user_version : 0;
 
-// Ścieżka do pliku bazy danych
-const dbPath = path.join(__dirname, '../../food4thought.db');
+    // Migracje bazy danych
+    if (currentVersion < 1) {
+      // Tabela użytkowników
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          email TEXT UNIQUE NOT NULL,
+          password_hash TEXT NOT NULL,
+          role TEXT DEFAULT 'user',
+          preferences TEXT DEFAULT '{}',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          email_verified BOOLEAN DEFAULT 1
+        )
+      `);
 
-// Utworzenie połączenia z bazą
-const db = new SQLite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Błąd połączenia z bazą danych:', err);
-  } else {
-    console.log('✅ Połączono z bazą danych SQLite');
-  }
-});
+      // Tabela resetowania haseł
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          token TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used BOOLEAN DEFAULT 0,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
 
-// Włączenie foreign keys
-db.run('PRAGMA foreign_keys = ON');
+      // Tabela serii
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS series (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          active BOOLEAN DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          image TEXT,
+          color TEXT DEFAULT '#3B82F6'
+        )
+      `);
 
-// Inicjalizacja tabel
-const initDatabase = () => {
-  db.serialize(() => {
-    // Tabela użytkowników
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        role TEXT DEFAULT 'user',
-        preferences TEXT DEFAULT '{}',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        email_verified BOOLEAN DEFAULT 1
-      )
-    `);
-
-    // Tabela resetowania haseł
-    db.run(`
-      CREATE TABLE IF NOT EXISTS password_resets (
-        token TEXT PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        expires_at DATETIME NOT NULL,
-        used BOOLEAN DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    // Tabela serii
-    db.run(`
-      CREATE TABLE IF NOT EXISTS series (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        active BOOLEAN DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        image TEXT,
-        color TEXT DEFAULT '#3B82F6'
-      )
-    `);
-
-    // Dodanie kolumn image i color do istniejących tabel
-    db.run(`
-      ALTER TABLE series 
-      ADD COLUMN image TEXT
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.log('Kolumna image już istnieje lub inny błąd:', err);
-      } else if (!err) {
-        console.log('✅ Dodano kolumnę image do tabeli series');
-      }
-    });
-
-    db.run(`
-      ALTER TABLE series 
-      ADD COLUMN color TEXT DEFAULT '#3B82F6'
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.log('Kolumna color już istnieje lub inny błąd:', err);
-      } else if (!err) {
-        console.log('✅ Dodano kolumnę color do tabeli series');
-        
-        // Aktualizuj istniejące serie z domyślnymi kolorami
-        db.run(`
-          UPDATE series SET color = CASE
-            WHEN name LIKE '%Biznes%' THEN '#3B82F6'
-            WHEN name LIKE '%Technologia%' OR name LIKE '%Technolog%' THEN '#10B981'
-            WHEN name LIKE '%Nauka%' OR name LIKE '%Nauk%' THEN '#8B5CF6'
-            WHEN name LIKE '%Historia%' OR name LIKE '%Histor%' THEN '#EF4444'
-            WHEN name LIKE '%Marketing%' THEN '#F59E0B'
-            WHEN name LIKE '%Zdrowie%' THEN '#EC4899'
-            WHEN name LIKE '%Kultura%' THEN '#14B8A6'
-            WHEN name LIKE '%Sport%' THEN '#84CC16'
-            ELSE '#3B82F6'
-          END WHERE color IS NULL OR color = '#3B82F6'
+      // Dodanie kolumn image i color do istniejących tabel
+      try {
+        await db.run(`
+          ALTER TABLE series 
+          ADD COLUMN image TEXT
         `);
+        console.log('✅ Dodano kolumnę image do tabeli series');
+      } catch (error) {
+        console.log('Kolumna image już istnieje w tabeli series');
       }
-    });
+
+      try {
+        await db.run(`
+          ALTER TABLE series 
+          ADD COLUMN color TEXT DEFAULT '#3B82F6'
+        `);
+        console.log('✅ Dodano kolumnę color do tabeli series');
+      } catch (error) {
+        console.log('Kolumna color już istnieje w tabeli series');
+      }
+      
+      // Aktualizuj istniejące serie z domyślnymi kolorami
+      await db.run(`
+        UPDATE series SET color = CASE
+          WHEN name LIKE '%Biznes%' THEN '#3B82F6'
+          WHEN name LIKE '%Technologia%' OR name LIKE '%Technolog%' THEN '#10B981'
+          WHEN name LIKE '%Nauka%' OR name LIKE '%Nauk%' THEN '#8B5CF6'
+          WHEN name LIKE '%Historia%' OR name LIKE '%Histor%' THEN '#EF4444'
+          WHEN name LIKE '%Marketing%' THEN '#F59E0B'
+          WHEN name LIKE '%Zdrowie%' THEN '#EC4899'
+          WHEN name LIKE '%Kultura%' THEN '#14B8A6'
+          WHEN name LIKE '%Sport%' THEN '#84CC16'
+          ELSE '#3B82F6'
+        END WHERE color IS NULL OR color = '#3B82F6'
+      `);
+
+      // Najpierw usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
+      await db.run(`
+        DELETE FROM series 
+        WHERE id NOT IN (
+          SELECT MIN(id) 
+          FROM series 
+          GROUP BY name
+        )
+      `);
+      console.log('✅ Usunięto duplikaty serii');
+
+      // Spróbuj dodać UNIQUE constraint
+      await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_series_name ON series(name)');
+      console.log('✅ Dodano UNIQUE constraint na nazwę serii');
+      
+      // Zaktualizuj wersję bazy danych
+      await db.run(`PRAGMA user_version = ${DB_VERSION}`);
+    }
 
     // Tabela odcinków
-    db.run(`
+    await db.run(`
       CREATE TABLE IF NOT EXISTS episodes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         series_id INTEGER NOT NULL,
@@ -116,287 +132,249 @@ const initDatabase = () => {
     `);
 
     // Dodaj kolumnę additional_info jeśli nie istnieje (dla istniejących baz)
-    db.run(`
-      ALTER TABLE episodes 
-      ADD COLUMN additional_info TEXT DEFAULT ''
-    `, (err) => {
-      if (err && !err.message.includes('duplicate column')) {
-        console.log('Kolumna additional_info już istnieje lub inny błąd:', err);
-      } else if (!err) {
-        console.log('✅ Dodano kolumnę additional_info do tabeli episodes');
-      }
-    });
-
-    // Usuń duplikaty serii i dodaj UNIQUE constraint
-    db.serialize(() => {
-      // Najpierw usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
-      db.run(`
-        DELETE FROM series 
-        WHERE id NOT IN (
-          SELECT MIN(id) 
-          FROM series 
-          GROUP BY name
-        )
-      `, (err) => {
-        if (!err) {
-          console.log('✅ Usunięto duplikaty serii');
-        }
-      });
-
-      // Spróbuj dodać UNIQUE constraint (może się nie udać jeśli już istnieje)
-      db.run(`
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_series_name ON series(name)
-      `, (err) => {
-        if (!err) {
-          console.log('✅ Dodano UNIQUE constraint na nazwę serii');
-        }
-      });
-    });
-
-    // Tabela postępu użytkownika
-    db.run(`
-      CREATE TABLE IF NOT EXISTS user_progress (
-        user_id INTEGER NOT NULL,
-        episode_id INTEGER NOT NULL,
-        position INTEGER DEFAULT 0,
-        completed BOOLEAN DEFAULT 0,
-        last_played DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, episode_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (episode_id) REFERENCES episodes(id)
-      )
-    `);
+    try {
+      await db.run(`
+        ALTER TABLE episodes 
+        ADD COLUMN additional_info TEXT DEFAULT ''
+      `);
+    } catch (error) {
+      // Kolumna już istnieje, ignoruj błąd
+      console.log('Kolumna additional_info już istnieje');
+    }
 
     // Tabela ulubionych
-    db.run(`
+    await db.run(`
       CREATE TABLE IF NOT EXISTS user_favorites (
         user_id INTEGER NOT NULL,
         episode_id INTEGER NOT NULL,
-        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, episode_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (episode_id) REFERENCES episodes(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
       )
     `);
 
     // Tabela ocen
-    db.run(`
+    await db.run(`
       CREATE TABLE IF NOT EXISTS ratings (
         user_id INTEGER NOT NULL,
         episode_id INTEGER NOT NULL,
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, episode_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (episode_id) REFERENCES episodes(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
       )
     `);
 
-    // Tabela komentarzy
-    db.run(`
-      CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        episode_id INTEGER NOT NULL,
-        content TEXT NOT NULL,
-        moderated BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (episode_id) REFERENCES episodes(id)
-      )
-    `);
-
-    // Tabela komunikatów
-    db.run(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        content TEXT NOT NULL,
-        read BOOLEAN DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    // Tabela definicji osiągnięć
-    db.run(`
-      CREATE TABLE IF NOT EXISTS achievements (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT NOT NULL,
-        category TEXT NOT NULL,
-        icon TEXT NOT NULL,
-        requirement_value INTEGER NOT NULL,
-        requirement_type TEXT NOT NULL,
-        points INTEGER DEFAULT 10,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Tabela osiągnięć użytkowników
-    db.run(`
-      CREATE TABLE IF NOT EXISTS user_achievements (
-        user_id INTEGER NOT NULL,
-        achievement_id INTEGER NOT NULL,
-        earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        progress_value INTEGER DEFAULT 0,
-        completed BOOLEAN DEFAULT 0,
-        PRIMARY KEY (user_id, achievement_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (achievement_id) REFERENCES achievements(id)
-      )
-    `);
-
-    // Tabela statystyk użytkowników (dla trackingu osiągnięć)
-    db.run(`
-      CREATE TABLE IF NOT EXISTS user_stats (
-        user_id INTEGER PRIMARY KEY,
-        total_listening_time INTEGER DEFAULT 0,
-        total_episodes_completed INTEGER DEFAULT 0,
-        current_streak INTEGER DEFAULT 0,
-        longest_streak INTEGER DEFAULT 0,
-        last_listening_date DATE,
-        fastest_completion_rate REAL DEFAULT 0,
-        night_owl_sessions INTEGER DEFAULT 0,
-        early_bird_sessions INTEGER DEFAULT 0,
-        high_speed_listening_time INTEGER DEFAULT 0,
-        perfect_completions INTEGER DEFAULT 0,
-        daily_episodes_count INTEGER DEFAULT 0,
-        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
-      )
-    `);
-
-    // Tabela sesji słuchania (dla trackingu wzorców czasowych)
-    db.run(`
+    // Tabela sesji odsłuchiwania
+    await db.run(`
       CREATE TABLE IF NOT EXISTS listening_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER NOT NULL,
         episode_id INTEGER NOT NULL,
         start_time DATETIME NOT NULL,
         end_time DATETIME,
-        playback_speed REAL DEFAULT 1.0,
-        completion_rate REAL DEFAULT 0,
-        duration_seconds INTEGER DEFAULT 0,
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (episode_id) REFERENCES episodes(id)
+        duration_seconds INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE
       )
     `);
 
-    // Utworzenie domyślnego super administratora
-    const defaultPassword = 'admin123';
-    bcrypt.hash(defaultPassword, 10, (err, hash) => {
-      if (!err) {
-        db.run(
-          `INSERT OR IGNORE INTO users (email, password_hash, role) VALUES (?, ?, ?)`,
-          ['admin@food4thought.local', hash, 'super_admin'],
-          (err) => {
-            if (!err) {
-              console.log('✅ Utworzono domyślnego super administratora');
-              console.log('📧 Email: admin@food4thought.local');
-              console.log('🔑 Hasło: admin123');
-              console.log('⚠️  ZMIEŃ TO HASŁO PO PIERWSZYM LOGOWANIU!');
-            }
-          }
-        );
-      }
-    });
-  });
+    // Tabela osiągnięć
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS achievements (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        criteria TEXT NOT NULL,
+        points INTEGER NOT NULL DEFAULT 10,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Tabela osiągnięć użytkownika
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS user_achievements (
+        user_id INTEGER NOT NULL,
+        achievement_id INTEGER NOT NULL,
+        earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, achievement_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Tabela statystyk użytkownika
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS user_stats (
+        user_id INTEGER PRIMARY KEY,
+        total_listening_seconds INTEGER DEFAULT 0,
+        episodes_completed INTEGER DEFAULT 0,
+        achievements_earned INTEGER DEFAULT 0,
+        last_active DATETIME,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Dodaj indeksy dla lepszej wydajności zapytań
+    await db.run('CREATE INDEX IF NOT EXISTS idx_episodes_series_id ON episodes(series_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_ratings_episode_id ON ratings(episode_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_listening_sessions_user_episode ON listening_sessions(user_id, episode_id)');
+    
+    // Dodaj kolumnę created_at do listening_sessions jeśli nie istnieje
+    try {
+      await db.run(`
+        ALTER TABLE listening_sessions 
+        ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      `);
+      await db.run('CREATE INDEX IF NOT EXISTS idx_listening_sessions_created_at ON listening_sessions(created_at)');
+    } catch (error) {
+      console.log('Kolumna created_at już istnieje w listening_sessions lub indeks już istnieje');
+    }
+    
+    console.log('✅ Database schema initialized successfully');
+  } catch (error) {
+    console.error('❌ Error initializing database:', error);
+    throw error;
+  }
 };
 
 // Inicjalizacja bazy danych
-initDatabase();
+let dbInstance = null;
+
+/**
+ * Gets a database connection instance
+ * @returns {Promise<import('sqlite').Database>} Database instance
+ */
+export async function getDb() {
+  if (!dbInstance) {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const dbPath = path.join(__dirname, '..', '..', 'data', 'food4thought.db');
+
+    dbInstance = await open({
+      filename: dbPath,
+      driver: sqlite3.Database
+    });
+
+    // Configure database
+    await dbInstance.run('PRAGMA journal_mode = WAL');
+    await dbInstance.run(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT}`);
+    await dbInstance.run('PRAGMA foreign_keys = ON');
+    
+    // Initialize database schema
+    await initDatabase(dbInstance);
+  }
+  
+  return dbInstance;
+}
+
+// Initialize database when imported
+let initPromise = null;
+
+export async function initializeDatabase() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      const db = await getDb();
+      await initializeAchievements(db);
+      return db;
+    })();
+  }
+  return initPromise;
+}
+
+// For backward compatibility
+const initDatabasePromise = initializeDatabase();
 
 // Inicjalizacja domyślnych osiągnięć
-const initializeAchievements = () => {
+const initializeAchievements = async (db) => {
   const achievements = [
     {
       name: 'Szybki Słuchacz',
       description: 'Słuchaj przez 1 godzinę z prędkością 2x',
-      category: 'speed',
       icon: '⚡',
-      requirement_value: 3600, // 1 godzina w sekundach
-      requirement_type: 'high_speed_listening_time',
+      criteria: 'high_speed_listening_time:3600',
       points: 20
     },
     {
       name: 'Dokładny Słuchacz',
       description: 'Ukończ 10 odcinków z 95%+ dokładnością',
-      category: 'precision',
       icon: '🎯',
-      requirement_value: 10,
-      requirement_type: 'perfect_completions',
+      criteria: 'perfect_completions:10',
       points: 30
     },
     {
       name: 'Nocny Marek',
       description: 'Słuchaj 5 odcinków między 22:00 a 6:00',
-      category: 'patterns',
       icon: '🦉',
-      requirement_value: 5,
-      requirement_type: 'night_owl_sessions',
+      criteria: 'night_owl_sessions:5',
       points: 15
     },
     {
       name: 'Ranny Ptaszek',
       description: 'Słuchaj 5 odcinków między 6:00 a 10:00',
-      category: 'patterns',
       icon: '🌅',
-      requirement_value: 5,
-      requirement_type: 'early_bird_sessions',
+      criteria: 'early_bird_sessions:5',
       points: 15
     },
     {
       name: 'Seria Mistrzowska',
       description: 'Słuchaj 7 dni z rzędu',
-      category: 'streak',
       icon: '🔥',
-      requirement_value: 7,
-      requirement_type: 'current_streak',
+      criteria: 'current_streak:7',
       points: 50
     },
     {
       name: 'Codzienny Słuchacz',
       description: 'Słuchaj 5 odcinków w jeden dzień',
-      category: 'daily',
       icon: '📅',
-      requirement_value: 5,
-      requirement_type: 'daily_episodes_count',
+      criteria: 'daily_episodes_count:5',
       points: 25
     }
   ];
 
-  achievements.forEach(achievement => {
-    db.run(`
-      INSERT OR IGNORE INTO achievements 
-      (name, description, category, icon, requirement_value, requirement_type, points)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [achievement.name, achievement.description, achievement.category, 
-        achievement.icon, achievement.requirement_value, achievement.requirement_type, achievement.points]);
-  });
+  for (const achievement of achievements) {
+    // Sprawdź czy tabela ma nową strukturę (category, requirement_value, requirement_type)
+    // czy starą (criteria)
+    const tableInfo = await db.all("PRAGMA table_info(achievements)");
+    const hasCriteria = tableInfo.some(col => col.name === 'criteria');
+    
+    if (hasCriteria) {
+      // Stara struktura
+      await db.run(`
+        INSERT OR IGNORE INTO achievements 
+        (name, description, icon, criteria, points)
+        VALUES (?, ?, ?, ?, ?)
+      `, [achievement.name, achievement.description, 
+          achievement.icon, achievement.criteria, achievement.points]);
+    } else {
+      // Nowa struktura - mapuj criteria na requirement_type i requirement_value
+      const [reqType, reqValue] = achievement.criteria.split(':');
+      await db.run(`
+        INSERT OR IGNORE INTO achievements 
+        (name, description, category, icon, requirement_value, requirement_type, points)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [achievement.name, achievement.description, 'general', 
+          achievement.icon, parseInt(reqValue) || 0, reqType, achievement.points]);
+    }
+  }
   
   console.log('✅ Zainicjalizowano system osiągnięć');
 };
 
 // Inicjalizacja statystyk użytkownika
-const initializeUserStats = (userId) => {
-  return new Promise((resolve, reject) => {
-    db.run(`
-      INSERT OR IGNORE INTO user_stats (user_id)
-      VALUES (?)
-    `, [userId], function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
+const initializeUserStats = async (userId) => {
+  const db = await getDb();
+  await db.run(`
+    INSERT OR IGNORE INTO user_stats (user_id)
+    VALUES (?)
+  `, [userId]);
 };
 
-// Inicjalizacja osiągnięć po definicji funkcji
-initializeAchievements();
-
-
-export default db;
+// Eksport funkcji do obsługi bazy danych
+export default getDb;

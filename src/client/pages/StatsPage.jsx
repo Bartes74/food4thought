@@ -9,7 +9,7 @@ import StarRating from '../components/StarRating';
 
 const StatsPage = () => {
   const { user } = useAuth();
-  const { isDark } = useTheme();
+  const { isDark: isDarkMode } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState(null);
@@ -80,7 +80,7 @@ const StatsPage = () => {
   };
 
 const getAllAchievements = () => {
-    if (!stats || !achievements.length) return { unlocked: [], locked: [], nextGoal: null };
+    if (!stats || !achievements || !achievements.length) return { unlocked: [], locked: [], achievements: [], nextGoal: null };
     
     const totalHours = stats.totalListeningTime / 60;
     const allAchievements = [];
@@ -310,7 +310,7 @@ const getAllAchievements = () => {
       : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
   }`}
 >
-  Osiągnięcia ({getAllAchievements().unlocked.length}/{getAllAchievements().achievements.length})
+  Osiągnięcia ({getAllAchievements().unlocked?.length || 0}/{getAllAchievements().achievements?.length || 0})
 </button>
           <button
             onClick={() => setActiveTab('ratings')}
@@ -320,7 +320,7 @@ const getAllAchievements = () => {
                 : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
-            Oceny ({topRatedEpisodes.length})
+            Oceny ({topRatedEpisodes?.length || 0})
           </button>
         </div>
 
@@ -357,14 +357,14 @@ const getAllAchievements = () => {
             </div>
             
             {/* Informacja o ocenionych odcinkach */}
-            {topRatedEpisodes.length > 0 && (
+            {topRatedEpisodes && topRatedEpisodes.length > 0 && (
               <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg mt-6`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="text-3xl">⭐</div>
                     <div>
                       <h3 className="text-lg font-semibold text-light-text dark:text-white">
-                        Masz {topRatedEpisodes.length} ocenionych odcinków
+                        Masz {topRatedEpisodes?.length || 0} ocenionych odcinków
                       </h3>
                       <p className="text-sm text-light-textSecondary dark:text-gray-400">
                         Zobacz swoje najwyżej ocenione odcinki w tabie "Oceny"
@@ -384,7 +384,7 @@ const getAllAchievements = () => {
         )}
 
         {/* Statystyki według serii */}
-        {activeTab === 'series' && (
+        {activeTab === 'series' && seriesStats && (
           <div className="space-y-6">
             {seriesStats.map((series) => (
               <div key={series.id} className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
@@ -636,7 +636,7 @@ const getAllAchievements = () => {
           <div className="space-y-6">
             <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
               <h3 className="text-xl font-semibold mb-4">⭐ Twoje najwyżej oceniane odcinki</h3>
-              {topRatedEpisodes.length > 0 ? (
+              {topRatedEpisodes && topRatedEpisodes.length > 0 ? (
                 <div className="space-y-4">
                   {topRatedEpisodes.map((episode, index) => (
                     <div

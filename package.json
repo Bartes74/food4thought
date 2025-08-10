@@ -6,6 +6,7 @@
   "main": "src/server/index.js",
   "jest": {
     "testEnvironment": "node",
+    "testTimeout": 30000,
     "transform": {},
     "globals": {
       "jest": true
@@ -13,6 +14,9 @@
     "testMatch": [
       "**/__tests__/**/*.js",
       "**/?(*.)+(spec|test).js"
+    ],
+    "setupFilesAfterEnv": [
+      "<rootDir>/src/setupTests.js"
     ],
     "collectCoverageFrom": [
       "src/server/**/*.js",
@@ -24,7 +28,18 @@
       "text",
       "lcov",
       "html"
-    ]
+    ],
+    "testEnvironmentOptions": {
+      "NODE_ENV": "test"
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!(node-fetch|fetch-blob)/)"
+    ],
+    "detectOpenHandles": true,
+    "forceExit": true
   },
   "scripts": {
     "start": "node src/server/index.js",
@@ -43,12 +58,12 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-                  "test:e2e:debug": "playwright test --debug",
-              "test:e2e:report": "playwright show-report",
-              "test:e2e:performance": "node src/client/__tests__/e2e/test-performance.js",
-              "test:e2e:fast": "playwright test --project=chromium --workers=4",
-              "test:e2e:all-browsers": "playwright test --project=chromium --project=firefox --project=webkit",
-              "start:test": "concurrently \"npm run dev\" \"npm run client\" --kill-others"
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:performance": "node src/client/__tests__/e2e/test-performance.js",
+    "test:e2e:fast": "playwright test --project=chromium --workers=4",
+    "test:e2e:all-browsers": "playwright test --project=chromium --project=firefox --project=webkit",
+    "start:test": "concurrently \"npm run dev\" \"npm run client\" --kill-others"
   },
   "keywords": [],
   "author": "",
@@ -59,6 +74,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
+    "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
@@ -78,6 +94,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.1.1",
+    "sqlite": "^5.1.1",
     "supertest": "^7.0.0",
     "tailwindcss": "^3.4.17",
     "vite": "^6.0.7"

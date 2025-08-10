@@ -1,9 +1,9 @@
-import db from '../database.js';
+import { getDb } from '../database.js';
 
 // Inicjalizacja statystyk użytkownika
 export const initializeUserStats = async (userId) => {
   return new Promise((resolve, reject) => {
-    db.run(`
+    getDb().run(`
       INSERT OR IGNORE INTO user_stats (user_id)
       VALUES (?)
     `, [userId], function(err) {
@@ -26,7 +26,7 @@ export const updateUserStats = async (userId, updates) => {
   values.push(userId);
 
   return new Promise((resolve, reject) => {
-    db.run(`
+    getDb().run(`
       UPDATE user_stats 
       SET ${setClause}, last_updated = CURRENT_TIMESTAMP
       WHERE user_id = ?
@@ -45,7 +45,7 @@ export const recordListeningSession = async (userId, episodeId, sessionData) => 
   const { startTime, endTime, playbackSpeed, completionRate, durationSeconds } = sessionData;
   
   return new Promise((resolve, reject) => {
-    db.run(`
+    getDb().run(`
       INSERT INTO listening_sessions 
       (user_id, episode_id, start_time, end_time, playback_speed, completion_rate, duration_seconds)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -67,7 +67,7 @@ export const checkAndAwardAchievements = async (userId) => {
     
     // Pobierz wszystkie osiągnięcia
     const achievements = await new Promise((resolve, reject) => {
-      db.all('SELECT * FROM achievements', [], (err, rows) => {
+      getDb().all('SELECT * FROM achievements', [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -75,7 +75,7 @@ export const checkAndAwardAchievements = async (userId) => {
 
     // Pobierz już przyznane osiągnięcia
     const earnedAchievements = await new Promise((resolve, reject) => {
-      db.all('SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1', [userId], (err, rows) => {
+      getDb().all('SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1', [userId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows.map(row => row.achievement_id));
       });
@@ -119,7 +119,7 @@ export const checkAndAwardAchievements = async (userId) => {
       if (completed) {
         // Przyznaj osiągnięcie
         await new Promise((resolve, reject) => {
-          db.run(`
+          getDb().run(`
             INSERT OR REPLACE INTO user_achievements 
             (user_id, achievement_id, earned_at, progress_value, completed)
             VALUES (?, ?, CURRENT_TIMESTAMP, ?, 1)
@@ -133,7 +133,7 @@ export const checkAndAwardAchievements = async (userId) => {
       } else {
         // Zaktualizuj postęp
         await new Promise((resolve, reject) => {
-          db.run(`
+          getDb().run(`
             INSERT OR REPLACE INTO user_achievements 
             (user_id, achievement_id, progress_value, completed)
             VALUES (?, ?, ?, 0)
@@ -153,30 +153,104 @@ export const checkAndAwardAchievements = async (userId) => {
 };
 
 // Pobranie osiągnięć użytkownika
-export const getUserAchievements = async (userId) => {
+export const getUserAchievements = (userId) => {
   return new Promise((resolve, reject) => {
-    db.all(`
+    getDb().all(`
       SELECT 
-        a.*,
-        ua.earned_at,
-        ua.progress_value,
-        ua.completed
+        a.id,
+        a.name,
+        a.description,
+        a.icon,
+        a.points,
+        a.requirement_type,
+        a.requirement_value,
+        a.category,
+        a.is_hidden,
+        COALESCE(ua.completed, 0) as completed,
+        ua.completed_at,
+        COALESCE(ua.progress, 0) as progress,
+        a.requirement_value as target
       FROM achievements a
       LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?
-      ORDER BY a.category, a.id
+      WHERE a.is_hidden = 0 OR ua.completed = 1
+      ORDER BY a.id
     `, [userId], (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
+      if (err) {
+        console.error('Error fetching user achievements:', err);
+        reject(err);
+      } else {
+        // Ensure all required fields are present
+        const achievements = (rows || []).map(ach => ({
+          id: ach.id,
+          name: ach.name || 'Nieznane osiągnięcie',
+          description: ach.description || '',
+          icon: ach.icon || 'trophy',
+          points: ach.points || 0,
+          completed: !!ach.completed,
+          completedAt: ach.completed_at || null,
+          progress: ach.progress || 0,
+          target: ach.target || 1,
+          category: ach.category || 'general',
+          requirementType: ach.requirement_type,
+          isHidden: ach.is_hidden === 1
+        }));
+        
+        resolve(achievements);
+      }
     });
   });
 };
 
 // Pobranie statystyk użytkownika
-export const getUserStats = async (userId) => {
+export const getUserStats = (userId) => {
   return new Promise((resolve, reject) => {
-    db.get('SELECT * FROM user_stats WHERE user_id = ?', [userId], (err, row) => {
-      if (err) reject(err);
-      else resolve(row || {});
+    getDb().get(`
+      SELECT 
+        us.*,
+        (SELECT COUNT(*) FROM user_achievements ua WHERE ua.user_id = ? AND ua.completed = 1) as total_achievements,
+        (SELECT COALESCE(SUM(a.points), 0) FROM user_achievements ua 
+         JOIN achievements a ON ua.achievement_id = a.id 
+         WHERE ua.user_id = ? AND ua.completed = 1) as total_points
+      FROM user_stats us 
+      WHERE user_id = ?
+    `, [userId, userId, userId], (err, row) => {
+      if (err) {
+        console.error('Error fetching user stats:', err);
+        reject(err);
+      } else {
+        // Ensure all required fields are present with default values
+        const defaultStats = {
+          user_id: userId,
+          total_listening_time: 0,
+          total_episodes_completed: 0,
+          total_episodes_started: 0,
+          total_episodes_abandoned: 0,
+          current_streak: 0,
+          longest_streak: 0,
+          last_listening_date: null,
+          total_achievements: 0,
+          total_points: 0,
+          average_completion_rate: 0,
+          favorite_category: null,
+          last_updated: new Date().toISOString()
+        };
+        
+        // Merge with database row if exists
+        const stats = row ? { ...defaultStats, ...row } : defaultStats;
+        
+        // Ensure numeric fields are numbers
+        const numericFields = [
+          'total_listening_time', 'total_episodes_completed', 'total_episodes_started',
+          'total_episodes_abandoned', 'current_streak', 'longest_streak',
+          'total_achievements', 'total_points', 'average_completion_rate'
+        ];
+        
+        numericFields.forEach(field => {
+          stats[field] = Number(stats[field]) || 0;
+        });
+        
+        resolve(stats);
+      }
     });
   });
 }; 

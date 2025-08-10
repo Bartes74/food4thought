@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import db from './database.js';
+import { getDb } from './database.js';
 import authRoutes from './routes/auth.js';
 import seriesRoutes from './routes/series.js';
 import episodesRoutes from './routes/episodes.js';
