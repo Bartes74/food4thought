@@ -3,12 +3,40 @@ import app from './test-app-simplified.js';
 
 describe('Episodes Integration Tests', () => {
   describe('GET /api/episodes/my', () => {
-    it('should return user episodes for authenticated user', async () => {
+    it('should return user episodes with proper structure for authenticated user', async () => {
       const response = await request(app)
         .get('/api/episodes/my')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('new');
+      expect(response.body).toHaveProperty('inProgress');
+      expect(response.body).toHaveProperty('completed');
+      expect(Array.isArray(response.body.new)).toBe(true);
+      expect(Array.isArray(response.body.inProgress)).toBe(true);
+      expect(Array.isArray(response.body.completed)).toBe(true);
+    });
+
+    it('should return episodes with series information', async () => {
+      const response = await request(app)
+        .get('/api/episodes/my')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      
+      // Sprawdź czy odcinki mają informacje o serii
+      const allEpisodes = [
+        ...response.body.new,
+        ...response.body.inProgress,
+        ...response.body.completed
+      ];
+      
+      if (allEpisodes.length > 0) {
+        const episode = allEpisodes[0];
+        expect(episode).toHaveProperty('series_name');
+        expect(episode).toHaveProperty('series_color');
+        expect(episode).toHaveProperty('series_image');
+      }
     });
 
     it('should return 401 for unauthenticated request', async () => {
@@ -27,6 +55,9 @@ describe('Episodes Integration Tests', () => {
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('id');
+      expect(response.body).toHaveProperty('title');
+      expect(response.body).toHaveProperty('series_id');
     });
 
     it('should return 404 for non-existent episode', async () => {
@@ -125,6 +156,42 @@ describe('Episodes Integration Tests', () => {
     });
   });
 
+  describe('GET /api/episodes/favorites', () => {
+    it('should return user favorites with series information', async () => {
+      const response = await request(app)
+        .get('/api/episodes/favorites')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      if (response.body.length > 0) {
+        const favorite = response.body[0];
+        expect(favorite).toHaveProperty('series_name');
+        expect(favorite).toHaveProperty('series_color');
+        expect(favorite).toHaveProperty('series_image');
+        expect(favorite).toHaveProperty('favorited_at');
+      }
+    });
+
+    it('should support search in favorites', async () => {
+      const response = await request(app)
+        .get('/api/episodes/favorites?search=test')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app)
+        .get('/api/episodes/favorites');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
   describe('POST /api/episodes/:id/rating', () => {
     it('should rate episode successfully', async () => {
       const response = await request(app)
@@ -205,17 +272,54 @@ describe('Episodes Integration Tests', () => {
   });
 
   describe('GET /api/episodes/my/top-rated', () => {
-    it('should return user top rated episodes', async () => {
+    it('should return user top rated episodes with series information', async () => {
       const response = await request(app)
         .get('/api/episodes/my/top-rated')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      if (response.body.length > 0) {
+        const topRated = response.body[0];
+        expect(topRated).toHaveProperty('series_name');
+        expect(topRated).toHaveProperty('series_color');
+        expect(topRated).toHaveProperty('rating');
+        expect(topRated).toHaveProperty('rated_at');
+      }
     });
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
         .get('/api/episodes/my/top-rated');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('DELETE /api/episodes/:id (Admin)', () => {
+    it('should delete episode and related data for admin', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/1')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+    });
+
+    it('should return 403 for non-admin user', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/1')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/1');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');

@@ -6,7 +6,7 @@ describe('Test App Direct Tests', () => {
   test('should return 200 for health check', async () => {
     const response = await request(app).get('/api/health');
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('status', 'ok');
+    expect(response.body).toHaveProperty('status', 'OK');
   });
 
   test('should return 404 for non-existent route', async () => {

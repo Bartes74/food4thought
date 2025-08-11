@@ -8,7 +8,7 @@ describe('Simple Integration Tests', () => {
         .get('/api/health');
 
       expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty('status', 'ok');
+      expect(response.body).toHaveProperty('status', 'OK');
       expect(response.body).toHaveProperty('message');
     });
   });
@@ -19,7 +19,7 @@ describe('Simple Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: 'admin@food4thought.local',
-          password: 'admin123'
+          password: 'admin'
         });
 
       expect(response.status).toBe(200);

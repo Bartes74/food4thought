@@ -1,34 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useTheme } from '../contexts/ThemeContext';
-import Layout from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
+import Layout from '../components/Layout.jsx';
 import axios from 'axios';
 
 const FavoritesPage = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
   const { isDarkMode } = useTheme();
-  const navigate = useNavigate();
-  
   const [favorites, setFavorites] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedEpisodes, setExpandedEpisodes] = useState({});
 
   useEffect(() => {
-    fetchFavorites();
-  }, [search]);
+    if (user) {
+      fetchFavorites();
+    }
+  }, [user]);
 
   const fetchFavorites = async () => {
     try {
+      setLoading(true);
       const response = await axios.get('/api/episodes/favorites', {
-        params: { search }
+        headers: { Authorization: `Bearer ${user.token}` }
       });
       setFavorites(response.data || []);
     } catch (error) {
-      console.error('Błąd pobierania ulubionych:', error);
+      console.error('Error fetching favorites:', error);
+      setFavorites([]);
     } finally {
       setLoading(false);
     }
@@ -42,60 +41,74 @@ const FavoritesPage = () => {
   };
 
   const playEpisode = (episodeId) => {
-    // Zapisz ID odcinka do odtworzenia w localStorage
-    localStorage.setItem('playEpisodeId', episodeId);
-    navigate('/');
+    // Implementacja odtwarzania odcinka
+    console.log('Playing episode:', episodeId);
   };
 
   const removeFavorite = async (episodeId) => {
     try {
-      await axios.post(`/api/episodes/${episodeId}/favorite`);
-      // Odśwież listę
-      fetchFavorites();
+      await axios.delete(`/api/episodes/${episodeId}/favorite`, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      setFavorites(prev => prev.filter(episode => episode.id !== episodeId));
     } catch (error) {
-      console.error('Błąd usuwania z ulubionych:', error);
+      console.error('Error removing favorite:', error);
     }
   };
 
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'new':
-        return (
-          <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-            Nowy
-          </span>
-        );
-      case 'inProgress':
-        return (
-          <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded">
-            W trakcie
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded">
-            Ukończony
-          </span>
-        );
-      default:
-        return null;
-    }
+    const statusConfig = {
+      'not_started': { text: 'Nie rozpoczęty', color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
+      'in_progress': { text: 'W trakcie', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      'completed': { text: 'Ukończony', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      'paused': { text: 'Wstrzymany', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
+    };
+
+    const config = statusConfig[status] || statusConfig['not_started'];
+    
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.color}`}>
+        {config.text}
+      </span>
+    );
   };
 
   const formatDuration = (seconds) => {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:00`;
+    }
+    return `${minutes}:00`;
   };
+
+  // Filtruj ulubione na podstawie wyszukiwania
+  const filteredFavorites = favorites ? favorites.filter(episode =>
+    episode.title.toLowerCase().includes(search.toLowerCase()) ||
+    episode.series_name.toLowerCase().includes(search.toLowerCase()) ||
+    (episode.additional_info && episode.additional_info.toLowerCase().includes(search.toLowerCase()))
+  ) : [];
 
   if (loading) {
     return (
       <Layout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie...</p>
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie ulubionych...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Layout>
+        <div className="max-w-6xl mx-auto p-6">
+          <div className="text-center py-12">
+            <p className="text-light-textSecondary dark:text-gray-400">Musisz się zalogować, aby zobaczyć ulubione odcinki.</p>
           </div>
         </div>
       </Layout>
@@ -136,7 +149,7 @@ const FavoritesPage = () => {
         </div>
 
         {/* Lista ulubionych pogrupowana po seriach */}
-        {favorites.length === 0 ? (
+        {filteredFavorites.length === 0 ? (
           <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-8 text-center`}>
             <p className="text-light-textSecondary dark:text-gray-400">
               {search ? 'Nie znaleziono ulubionych odcinków pasujących do wyszukiwania.' : 'Nie masz jeszcze żadnych ulubionych odcinków.'}
@@ -144,9 +157,9 @@ const FavoritesPage = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {favorites && favorites.length > 0 ? (
+            {filteredFavorites && filteredFavorites.length > 0 ? (
               // Grupuj odcinki według serii
-              Object.values(favorites.reduce((acc, episode) => {
+              Object.values(filteredFavorites.reduce((acc, episode) => {
                 const seriesId = episode.series_id;
                 if (!acc[seriesId]) {
                   acc[seriesId] = {
@@ -165,142 +178,141 @@ const FavoritesPage = () => {
                   </h2>
                   <div className="space-y-3">
                     {series.episodes.map((episode) => (
-                    <div
-                      key={episode.id}
-                      className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg shadow-lg transition-all duration-300`}
-                    >
-                      {/* Główna część odcinka */}
                       <div
-                        className="p-4 cursor-pointer"
-                        onClick={() => toggleEpisode(episode.id)}
+                        key={episode.id}
+                        className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg shadow-lg transition-all duration-300`}
                       >
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-light-text dark:text-white">
-                                {episode.title}
-                              </h3>
-                              <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            {getStatusBadge(episode.status)}
-                            <svg 
-                              className={`w-5 h-5 transition-transform ${expandedEpisodes[episode.id] ? 'rotate-180' : ''}`} 
-                              fill="currentColor" 
-                              viewBox="0 0 20 20"
-                            >
-                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Rozwinięta sekcja */}
-                      {expandedEpisodes[episode.id] && (
-                        <div className={`px-4 pb-4 border-t ${isDarkMode ? 'border-dark-border' : 'border-light-border'}`}>
-                          {/* Informacje dodatkowe */}
-                          {episode.additional_info && (
-                            <div className="mt-4">
-                              <h4 className="font-semibold text-light-text dark:text-white mb-2">
-                                Informacje dodatkowe
-                              </h4>
-                              <p className="text-sm text-light-textSecondary dark:text-gray-400 whitespace-pre-wrap">
-                                {episode.additional_info}
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Tematy */}
-                          {episode.topics && episode.topics.length > 0 && (
-                            <div className="mt-4">
-                              <h4 className="font-semibold text-light-text dark:text-white mb-2">
-                                Tematy w odcinku
-                              </h4>
-                              <div className="space-y-3">
-                                {episode.topics.map((topic, index) => (
-                                  <div key={index} className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="text-xs text-primary font-medium">
-                                        [{Math.floor(topic.timestamp / 60)}:{(topic.timestamp % 60).toString().padStart(2, '0')}]
-                                      </span>
-                                      <h5 className="font-medium text-light-text dark:text-white">
-                                        {topic.title}
-                                      </h5>
-                                    </div>
-                                    {topic.links.length > 0 && (
-                                      <div className="ml-12 space-y-1">
-                                        {topic.links.map((link, linkIndex) => (
-                                          <a
-                                            key={linkIndex}
-                                            href={link}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block text-xs text-primary hover:text-primary-dark transition-colors truncate"
-                                          >
-                                            {link}
-                                          </a>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
+                        {/* Główna część odcinka */}
+                        <div
+                          className="p-4 cursor-pointer"
+                          onClick={() => toggleEpisode(episode.id)}
+                        >
+                          <div className="flex justify-between items-center">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-light-text dark:text-white">
+                                  {episode.title}
+                                </h3>
+                                <span className="text-sm text-light-textSecondary dark:text-gray-400">
+                                  • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                                </span>
                               </div>
                             </div>
-                          )}
-
-                          {/* Przyciski akcji */}
-                          <div className="flex gap-3 mt-4">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                playEpisode(episode.id);
-                              }}
-                              className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
-                            >
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                            <div className="flex items-center gap-2 ml-4">
+                              {getStatusBadge(episode.status)}
+                              <svg 
+                                className={`w-5 h-5 transition-transform ${expandedEpisodes[episode.id] ? 'rotate-180' : ''}`} 
+                                fill="currentColor" 
+                                viewBox="0 0 20 20"
+                              >
+                                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                               </svg>
-                              Odtwórz
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeFavorite(episode.id);
-                              }}
-                              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                                isDarkMode 
-                                  ? 'bg-dark-bg hover:bg-dark-border text-white' 
-                                  : 'bg-gray-100 hover:bg-gray-200 text-light-text'
-                              }`}
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                              </svg>
-                              Usuń z ulubionych
-                            </button>
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {/* Rozwinięta sekcja */}
+                        {expandedEpisodes[episode.id] && (
+                          <div className={`px-4 pb-4 border-t ${isDarkMode ? 'border-dark-border' : 'border-light-border'}`}>
+                            {/* Informacje dodatkowe */}
+                            {episode.additional_info && (
+                              <div className="mt-4">
+                                <h4 className="font-semibold text-light-text dark:text-white mb-2">
+                                  Informacje dodatkowe
+                                </h4>
+                                <p className="text-sm text-light-textSecondary dark:text-gray-400 whitespace-pre-wrap">
+                                  {episode.additional_info}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Tematy */}
+                            {episode.topics && episode.topics.length > 0 && (
+                              <div className="mt-4">
+                                <h4 className="font-semibold text-light-text dark:text-white mb-2">
+                                  Tematy w odcinku
+                                </h4>
+                                <div className="space-y-3">
+                                  {episode.topics.map((topic, index) => (
+                                    <div key={index} className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs text-primary font-medium">
+                                          [{Math.floor(topic.timestamp / 60)}:{(topic.timestamp % 60).toString().padStart(2, '0')}]
+                                        </span>
+                                        <h5 className="font-medium text-light-text dark:text-white">
+                                          {topic.title}
+                                        </h5>
+                                      </div>
+                                      {topic.links.length > 0 && (
+                                        <div className="ml-12 space-y-1">
+                                          {topic.links.map((link, linkIndex) => (
+                                            <a
+                                              key={linkIndex}
+                                              href={link}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="block text-xs text-primary hover:text-primary-dark transition-colors truncate"
+                                            >
+                                              {link}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Przyciski akcji */}
+                            <div className="flex gap-3 mt-4">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  playEpisode(episode.id);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
+                              >
+                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                </svg>
+                                Odtwórz
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFavorite(episode.id);
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                                  isDarkMode 
+                                    ? 'bg-dark-bg hover:bg-dark-border text-white' 
+                                    : 'bg-gray-100 hover:bg-gray-200 text-light-text'
+                                }`}
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                </svg>
+                                Usuń z ulubionych
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )
+              ))
             ) : (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <div className="text-6xl mb-4">💔</div>
                 <h3 className="text-xl font-semibold mb-2">Brak ulubionych odcinków</h3>
                 <p>Dodaj odcinki do ulubionych, aby szybciej do nich wracać!</p>
               </div>
-            )
-          )}
-        </div>
-      )}
-
+            )}
+          </div>
+        )}
+      </div>
     </Layout>
   );
 };

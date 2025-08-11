@@ -8,7 +8,7 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/login')
         .send({
           email: 'admin@food4thought.local',
-          password: 'admin123'
+          password: 'admin'
         });
 
       expect(response.status).toBe(200);

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './src/client/__tests__/e2e',
+  testDir: './',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -52,7 +52,7 @@ export default defineConfig({
   },
   
   /* Globalne setup */
-  globalSetup: require.resolve('./src/client/__tests__/e2e/global-setup.js'),
+  globalSetup: './global-setup.js',
   
   /* Projekty z zapisaną sesją */
   projects: [

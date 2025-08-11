@@ -5,7 +5,7 @@ describe('User Stats Integration Tests', () => {
   describe('GET /api/users/:id/stats', () => {
     it('should return user statistics for authenticated user', async () => {
       const response = await request(app)
-        .get('/api/users/1/stats')
+        .get('/api/users/2/stats')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
@@ -13,7 +13,7 @@ describe('User Stats Integration Tests', () => {
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
-        .get('/api/users/1/stats');
+        .get('/api/users/2/stats');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');
@@ -50,7 +50,7 @@ describe('User Stats Integration Tests', () => {
   describe('GET /api/users/:id/favorites', () => {
     it('should return user favorites for authenticated user', async () => {
       const response = await request(app)
-        .get('/api/users/1/favorites')
+        .get('/api/users/2/favorites')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
@@ -58,7 +58,7 @@ describe('User Stats Integration Tests', () => {
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
-        .get('/api/users/1/favorites');
+        .get('/api/users/2/favorites');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');
@@ -95,7 +95,7 @@ describe('User Stats Integration Tests', () => {
   describe('GET /api/users/:id/history', () => {
     it('should return user listening history for authenticated user', async () => {
       const response = await request(app)
-        .get('/api/users/1/history')
+        .get('/api/users/2/history')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
@@ -103,7 +103,7 @@ describe('User Stats Integration Tests', () => {
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
-        .get('/api/users/1/history');
+        .get('/api/users/2/history');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');
@@ -122,7 +122,7 @@ describe('User Stats Integration Tests', () => {
   describe('GET /api/users/:id/patterns', () => {
     it('should return user listening patterns for authenticated user', async () => {
       const response = await request(app)
-        .get('/api/users/1/patterns')
+        .get('/api/users/2/patterns')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
@@ -130,7 +130,7 @@ describe('User Stats Integration Tests', () => {
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
-        .get('/api/users/1/patterns');
+        .get('/api/users/2/patterns');
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty('error');

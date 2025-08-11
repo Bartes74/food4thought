@@ -30,8 +30,53 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/my', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
-    const episodes = await db.all('SELECT * FROM episodes ORDER BY date_added DESC LIMIT 10');
-    res.json(episodes);
+    const userId = parseInt(req.user.id);
+    
+    // Pobierz wszystkie odcinki z informacjami o serii i statusie użytkownika
+    const episodes = await db.all(`
+      SELECT 
+        e.*,
+        s.name as series_name,
+        s.color as series_color,
+        s.image as series_image,
+        ls.completion_rate as user_completion_rate,
+        ls.duration_seconds as user_duration,
+        ls.start_time as user_start_time,
+        ls.end_time as user_end_time,
+        r.rating as user_rating,
+        r.created_at as rated_at,
+        uf.episode_id as is_favorite,
+        uf.added_at as favorited_at
+      FROM episodes e
+      JOIN series s ON e.series_id = s.id
+      LEFT JOIN listening_sessions ls ON e.id = ls.episode_id AND ls.user_id = ?
+      LEFT JOIN ratings r ON e.id = r.episode_id AND r.user_id = ?
+      LEFT JOIN user_favorites uf ON e.id = uf.episode_id AND uf.user_id = ?
+      WHERE s.active = 1
+      ORDER BY e.date_added DESC
+    `, [userId, userId, userId]);
+    
+    // Grupuj odcinki według statusu
+    const groupedEpisodes = {
+      new: [],
+      inProgress: [],
+      completed: []
+    };
+    
+    episodes.forEach(episode => {
+      const completionRate = episode.user_completion_rate || 0;
+      const hasEndTime = episode.user_end_time !== null;
+      
+      if (completionRate >= 0.9 || hasEndTime) {
+        groupedEpisodes.completed.push(episode);
+      } else if (completionRate > 0 || episode.user_start_time !== null) {
+        groupedEpisodes.inProgress.push(episode);
+      } else {
+        groupedEpisodes.new.push(episode);
+      }
+    });
+    
+    res.json(groupedEpisodes);
   } catch (error) {
     console.error('Get user episodes error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
