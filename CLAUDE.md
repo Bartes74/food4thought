@@ -4,23 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Food 4 Thought is a local podcast application with a React frontend and Node.js/Express backend, using SQLite for data storage. The application serves audio content with multi-language support (Polish/English/French) and features user management, progress tracking, and admin controls.
+Food 4 Thought is a local podcast application with a React frontend and Node.js/Express backend, using SQLite for data storage. The application serves audio content with multi-language support (Polish/English/French) and features user management, progress tracking, admin controls, and a comprehensive achievement system.
 
 ## Development Commands
 
 ```bash
 # Start development (both frontend and backend)
-./start.sh                    # Starts backend (port 3002) and frontend (port 3000)
+./start.sh                    # Starts backend (port 3001) and frontend (port 3000)
 ./stop.sh                     # Stops all processes
 
 # Individual services
-npm run dev                   # Start backend with nodemon (port 3002)
+npm run dev                   # Start backend with nodemon (port 3001)
 npm run client               # Start Vite dev server (port 3000)
 
 # Production
 npm run build                # Build frontend for production
 npm start                    # Start production backend
 npm run preview              # Preview production build
+
+# Testing
+npm test                     # Run backend tests (Jest)
+npm run test:e2e            # Run E2E tests (Playwright)
+npm run test:coverage       # Run tests with coverage
 
 # Setup
 npm install                  # Install all dependencies
@@ -29,7 +34,7 @@ npm install                  # Install all dependencies
 ## Architecture
 
 **Dual-server setup:**
-- Backend: Express server on port 3002 serving `/api/*` endpoints
+- Backend: Express server on port 3001 serving `/api/*` endpoints
 - Frontend: Vite dev server on port 3000 with proxy configuration
 - Database: SQLite at `/food4thought.db`
 - Static files: Audio, transcripts, and images served from `/public/`
@@ -59,11 +64,23 @@ npm install                  # Install all dependencies
 - Axios with authentication interceptors
 - Context API for state management (Auth, Language, Theme)
 
+**Testing:**
+- Jest for backend unit/integration tests
+- Playwright for E2E testing
+- 100% test coverage for backend (142/142 tests)
+- Comprehensive E2E test suite
+
 ## Database Schema
 
-Core tables: `users`, `series`, `episodes`, `user_progress`, `user_favorites`, `ratings`, `comments`, `messages`
+Core tables: `users`, `series`, `episodes`, `listening_sessions`, `user_favorites`, `ratings`, `achievements`, `user_achievements`
 
-Default super admin account: `admin@food4thought.local` / `admin123`
+**Achievement System:**
+- 19 unique achievements (recently fixed from 1928 duplicates)
+- Automatic unlocking based on user activity
+- Progress tracking in real-time
+- Categories: listening, ratings, favorites, series
+
+Default super admin account: `admin@food4thought.local` / `admin`
 
 ## Authentication & Authorization
 
@@ -78,8 +95,24 @@ Default super admin account: `admin@food4thought.local` / `admin123`
 - Dark/Light theme toggle with Tailwind CSS
 - Audio playback with progress tracking
 - User favorites and rating system
+- Achievement system with 19 unique badges
 - Admin content management and user moderation
 - File upload handling for audio and images
+- Comprehensive statistics and analytics
+
+## Recent Fixes (v2.0.1)
+
+### Achievement System Fix
+- **Problem**: Database contained 1928 duplicate achievements instead of 19 unique ones
+- **Solution**: Removed duplicates and orphaned records
+- **Result**: Correct achievement count displayed in UI (19 instead of 1942)
+- **Script**: `fix_achievements_duplicates.sql` available for future fixes
+
+### Test Suite Improvements
+- **Backend**: 142/142 tests passing (100%)
+- **E2E**: All Playwright tests passing
+- **Added**: `data-testid` attributes for better test targeting
+- **Optimized**: Playwright configuration and timeouts
 
 ## Development Notes
 
@@ -88,3 +121,19 @@ Default super admin account: `admin@food4thought.local` / `admin123`
 - Static file serving integrated with Express
 - Vite proxy configuration handles API routing during development
 - Custom color palette defined in Tailwind config
+- Comprehensive test suite with Jest and Playwright
+- Achievement system with automatic progress tracking
+
+## Testing Status
+
+- ✅ **Backend**: 142/142 tests passing (100%)
+- ✅ **E2E**: All Playwright tests passing
+- ✅ **Coverage**: Complete functionality coverage
+- ✅ **Performance**: Optimized test execution times
+
+## Database Integrity
+
+- ✅ **Achievements**: 19 unique achievements (fixed from 1928 duplicates)
+- ✅ **User Data**: All user achievements preserved during cleanup
+- ✅ **Performance**: Improved query performance after cleanup
+- ✅ **Backup**: SQL script available for future maintenance

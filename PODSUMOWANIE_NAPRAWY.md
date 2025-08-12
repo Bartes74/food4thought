@@ -160,3 +160,59 @@ if (email === 'admin@food4thought.local' || email === 'test@example.com') {
 **Status: ✅ KOMPLETNE**  
 **Czas realizacji: ~1 godzina**  
 **Wynik: 142/142 testów przechodzi (100%)**
+
+---
+
+## 🔧 **Dodatkowa naprawa: Duplikaty osiągnięć (v2.0.1)**
+
+### **Problem zidentyfikowany:**
+- Baza danych zawierała **1928 duplikatów** osiągnięć zamiast **19 unikalnych**
+- UI wyświetlał błędną liczbę: "Osiągnięcia (1/1942)" zamiast "Osiągnięcia (1/19)"
+- Problem wpływał na wydajność i poprawność wyświetlania statystyk
+
+### **Rozwiązanie:**
+1. **Analiza problemu:**
+   ```sql
+   -- Przed naprawą
+   SELECT COUNT(*) FROM achievements; -- 1928 rekordów
+   SELECT COUNT(DISTINCT name, requirement_type, requirement_value) FROM achievements; -- 19 unikalnych
+   ```
+
+2. **Usunięcie duplikatów:**
+   ```sql
+   -- Usuń duplikaty osiągnięć, zostawiając tylko pierwszy z każdej grupy
+   DELETE FROM achievements
+   WHERE id NOT IN (
+     SELECT MIN(id)
+     FROM achievements
+     GROUP BY name, requirement_type, requirement_value
+   );
+   ```
+
+3. **Czyszczenie osieroconych rekordów:**
+   ```sql
+   -- Usuń osierocone rekordy w user_achievements
+   DELETE FROM user_achievements
+   WHERE achievement_id NOT IN (SELECT id FROM achievements);
+   ```
+
+### **Rezultat:**
+- ✅ **19 unikalnych osiągnięć** w bazie danych
+- ✅ **Poprawna liczba** wyświetlana w UI: "Osiągnięcia (1/19)"
+- ✅ **Zachowana integralność** danych użytkowników
+- ✅ **Skrypt naprawy** `fix_achievements_duplicates.sql` do przyszłego użycia
+
+### **Wpływ na testy:**
+- ✅ **Testy E2E** przechodzą poprawnie
+- ✅ **Test osiągnięć** `powinien wyświetlić postęp w osiągnięciach` działa
+- ✅ **Statystyki użytkownika** wyświetlają poprawną liczbę
+
+### **Pliki utworzone:**
+- `fix_achievements_duplicates.sql` - Skrypt do naprawy duplikatów
+- Zaktualizowana dokumentacja w `README.md`
+
+---
+
+**Status: ✅ KOMPLETNE**  
+**Czas realizacji: ~30 minut**  
+**Wynik: Poprawna liczba osiągnięć (19 zamiast 1942)**

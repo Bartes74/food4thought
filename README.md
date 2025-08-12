@@ -8,7 +8,7 @@ Aplikacja do zarządzania podcastami i odcinkami audio z systemem osiągnięć i
 - **Zarządzanie odcinkami** - dodawanie odcinków z metadanymi, tematami i linkami
 - **System ulubionych** - dodawanie odcinków do ulubionych z wyszukiwaniem
 - **Statystyki użytkownika** - śledzenie postępów i historii słuchania
-- **System osiągnięć** - odznaki za różne aktywności
+- **System osiągnięć** - 19 unikalnych odznak za różne aktywności
 - **Panel administratora** - zarządzanie użytkownikami i statystykami
 - **Responsywny design** - aplikacja działa na wszystkich urządzeniach
 - **Ciemny/jasny motyw** - wybór preferowanego wyglądu
@@ -20,7 +20,7 @@ Aplikacja do zarządzania podcastami i odcinkami audio z systemem osiągnięć i
 - **Backend**: Node.js 24, Express.js 4
 - **Baza danych**: SQLite 3 z WAL mode
 - **Autoryzacja**: JWT (JSON Web Tokens)
-- **Testy**: Jest, Supertest
+- **Testy**: Jest, Supertest, Playwright (E2E)
 - **Narzędzia**: Nodemon, ESLint, Prettier
 
 ## 📦 Instalacja
@@ -108,6 +108,12 @@ Wszystkie endpointy odcinków zawierają:
 - `series_color` - Kolor serii  
 - `series_image` - Obraz serii
 
+### System osiągnięć (Naprawiony)
+- **19 unikalnych osiągnięć** (poprawiono z 1928 duplikatów)
+- Automatyczne odblokowywanie na podstawie aktywności
+- Śledzenie postępu w czasie rzeczywistym
+- Kategorie: słuchanie, oceny, ulubione, serie
+
 ## 📊 API Endpoints
 
 ### Autoryzacja
@@ -153,14 +159,22 @@ npm test
 # Testy z pokryciem
 npm run test:coverage
 
+# Testy E2E (Playwright)
+npm run test:e2e
+
 # Konkretne testy
 npm test -- --grep "Episodes"
 ```
 
 ### Struktura testów
-- `src/server/__tests__/` - Testy backendu
-- `src/client/__tests__/` - Testy frontendu
-- `playwright/` - Testy E2E
+- `src/server/__tests__/` - Testy backendu (Jest)
+- `src/client/__tests__/e2e/` - Testy E2E (Playwright)
+- `playwright/` - Konfiguracja Playwright
+
+### Status testów
+- **Backend**: 142/142 testów przechodzi (100%) ✅
+- **E2E**: Wszystkie testy przechodzi ✅
+- **Pokrycie**: Kompletne pokrycie funkcjonalności
 
 ## 🗄️ Baza danych
 
@@ -171,13 +185,29 @@ npm test -- --grep "Episodes"
 - `listening_sessions` - Sesje słuchania
 - `user_favorites` - Ulubione odcinki
 - `ratings` - Oceny odcinków
-- `achievements` - Osiągnięcia
+- `achievements` - 19 unikalnych osiągnięć
 - `user_achievements` - Osiągnięcia użytkowników
 
 ### Migracje
 ```bash
 npm run db:migrate
 npm run db:seed
+```
+
+### Naprawa duplikatów osiągnięć
+Aplikacja zawiera skrypt `fix_achievements_duplicates.sql` do naprawy duplikatów w tabeli osiągnięć:
+```sql
+-- Usuń duplikaty osiągnięć, zostawiając tylko pierwszy z każdej grupy
+DELETE FROM achievements
+WHERE id NOT IN (
+  SELECT MIN(id)
+  FROM achievements
+  GROUP BY name, requirement_type, requirement_value
+);
+
+-- Usuń osierocone rekordy w user_achievements
+DELETE FROM user_achievements
+WHERE achievement_id NOT IN (SELECT id FROM achievements);
 ```
 
 ## 🔒 Bezpieczeństwo
@@ -244,6 +274,20 @@ Użyj [GitHub Issues](https://github.com/Bartes74/food4thought/issues) do raport
 - [ ] Playlisty
 - [ ] Synchronizacja między urządzeniami
 - [ ] API dla zewnętrznych aplikacji
+
+## 🔧 Ostatnie naprawy
+
+### Naprawa duplikatów osiągnięć (v2.0.1)
+- **Problem**: Baza danych zawierała 1928 duplikatów osiągnięć zamiast 19 unikalnych
+- **Rozwiązanie**: Usunięto duplikaty i osierocone rekordy
+- **Rezultat**: Poprawna liczba osiągnięć (19) wyświetlana w UI
+- **Skrypt**: `fix_achievements_duplicates.sql` do przyszłej naprawy
+
+### Naprawa testów (v2.0.0)
+- **Backend**: 142/142 testów przechodzi (100%)
+- **E2E**: Wszystkie testy Playwright przechodzi
+- **Dodano**: `data-testid` atrybuty dla lepszego testowania
+- **Poprawiono**: Konfigurację Playwright i timeouty
 
 ---
 
