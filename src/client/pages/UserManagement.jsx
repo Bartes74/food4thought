@@ -78,7 +78,7 @@ const UserManagement = () => {
     }
 
     try {
-      await axios.put(`/users/${userId}/role`, { role: newRole });
+      await axios.put(`/api/users/${userId}`, { role: newRole });
       await fetchUsers();
       setEditingUser(null);
     } catch (error) {
@@ -92,7 +92,7 @@ const UserManagement = () => {
     }
 
     try {
-      const response = await axios.post(`/users/${userId}/reset-password`);
+      const response = await axios.post(`/api/users/${userId}/reset-password`);
       alert(`Nowe hasło: ${response.data.newPassword}\n\nZapisz je i przekaż użytkownikowi!`);
     } catch (error) {
       setError(error.response?.data?.error || 'Błąd resetowania hasła');
@@ -105,7 +105,7 @@ const UserManagement = () => {
     }
 
     try {
-      await axios.delete(`/users/${userId}`);
+      await axios.delete(`/api/users/${userId}`);
       await fetchUsers();
     } catch (error) {
       setError(error.response?.data?.error || 'Błąd usuwania użytkownika');
@@ -114,7 +114,7 @@ const UserManagement = () => {
 
   const fetchUserStats = async (userId) => {
     try {
-      const response = await axios.get(`/users/${userId}/stats`);
+      const response = await axios.get(`/api/users/${userId}/stats`);
       setSelectedUserStats({ userId, stats: response.data });
       setShowStatsModal(true);
     } catch (error) {

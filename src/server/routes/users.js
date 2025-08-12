@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { getDb } from '../database.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
@@ -157,6 +158,25 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const db = await getDb();
     const userId = parseInt(req.params.id);
     
+    // Sprawdź czy użytkownik nie próbuje usunąć samego siebie
+    if (req.user.id === userId) {
+      return res.status(400).json({ error: 'Nie możesz usunąć swojego własnego konta' });
+    }
+    
+    // Sprawdź czy użytkownik istnieje
+    const user = await db.get('SELECT role FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+    }
+    
+    // Sprawdź czy nie usuwa ostatniego super admina
+    if (user.role === 'super_admin') {
+      const superAdminCount = await db.get('SELECT COUNT(*) as count FROM users WHERE role = ?', ['super_admin']);
+      if (superAdminCount.count <= 1) {
+        return res.status(400).json({ error: 'Nie można usunąć ostatniego super administratora' });
+      }
+    }
+    
     const result = await db.run(
       'DELETE FROM users WHERE id = ?',
       [userId]
@@ -169,6 +189,38 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ message: 'Użytkownik usunięty' });
   } catch (error) {
     console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// Reset hasła użytkownika (admin only)
+router.post('/:id/reset-password', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const userId = parseInt(req.params.id);
+    
+    // Sprawdź czy użytkownik istnieje
+    const user = await db.get('SELECT email FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+    }
+    
+    // Generuj nowe hasło
+    const newPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    
+    // Zaktualizuj hasło
+    await db.run(
+      'UPDATE users SET password_hash = ? WHERE id = ?',
+      [hashedPassword, userId]
+    );
+    
+    res.json({ 
+      message: 'Hasło zostało zresetowane',
+      newPassword: newPassword
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
   }
 });
