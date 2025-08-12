@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
  */
 async function initDatabase(db) {
   // Database version for migrations
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   
   try {
     // Sprawdź wersję bazy danych
@@ -49,7 +49,10 @@ async function initDatabase(db) {
           FOREIGN KEY (user_id) REFERENCES users(id)
         )
       `);
+    }
 
+    // Migracja do wersji 2 - dodanie tabeli email_verifications
+    if (currentVersion < 2) {
       // Tabela weryfikacji email
       await db.run(`
         CREATE TABLE IF NOT EXISTS email_verifications (
@@ -62,73 +65,74 @@ async function initDatabase(db) {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
-
-      // Tabela serii
-      await db.run(`
-        CREATE TABLE IF NOT EXISTS series (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL UNIQUE,
-          active BOOLEAN DEFAULT 1,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          image TEXT,
-          color TEXT DEFAULT '#3B82F6'
-        )
-      `);
-
-      // Dodanie kolumn image i color do istniejących tabel
-      try {
-        await db.run(`
-          ALTER TABLE series 
-          ADD COLUMN image TEXT
-        `);
-        console.log('✅ Dodano kolumnę image do tabeli series');
-      } catch (error) {
-        console.log('Kolumna image już istnieje w tabeli series');
-      }
-
-      try {
-        await db.run(`
-          ALTER TABLE series 
-          ADD COLUMN color TEXT DEFAULT '#3B82F6'
-        `);
-        console.log('✅ Dodano kolumnę color do tabeli series');
-      } catch (error) {
-        console.log('Kolumna color już istnieje w tabeli series');
-      }
-      
-      // Aktualizuj istniejące serie z domyślnymi kolorami
-      await db.run(`
-        UPDATE series SET color = CASE
-          WHEN name LIKE '%Biznes%' THEN '#3B82F6'
-          WHEN name LIKE '%Technologia%' OR name LIKE '%Technolog%' THEN '#10B981'
-          WHEN name LIKE '%Nauka%' OR name LIKE '%Nauk%' THEN '#8B5CF6'
-          WHEN name LIKE '%Historia%' OR name LIKE '%Histor%' THEN '#EF4444'
-          WHEN name LIKE '%Marketing%' THEN '#F59E0B'
-          WHEN name LIKE '%Zdrowie%' THEN '#EC4899'
-          WHEN name LIKE '%Kultura%' THEN '#14B8A6'
-          WHEN name LIKE '%Sport%' THEN '#84CC16'
-          ELSE '#3B82F6'
-        END WHERE color IS NULL OR color = '#3B82F6'
-      `);
-
-      // Najpierw usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
-      await db.run(`
-        DELETE FROM series 
-        WHERE id NOT IN (
-          SELECT MIN(id) 
-          FROM series 
-          GROUP BY name
-        )
-      `);
-      console.log('✅ Usunięto duplikaty serii');
-
-      // Spróbuj dodać UNIQUE constraint
-      await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_series_name ON series(name)');
-      console.log('✅ Dodano UNIQUE constraint na nazwę serii');
-      
-      // Zaktualizuj wersję bazy danych
-      await db.run(`PRAGMA user_version = ${DB_VERSION}`);
+      console.log('✅ Dodano tabelę email_verifications');
     }
+
+    // Tabela serii
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS series (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        active BOOLEAN DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        image TEXT,
+        color TEXT DEFAULT '#3B82F6'
+      )
+    `);
+
+    // Dodanie kolumn image i color do istniejących tabel
+    try {
+      await db.run(`
+        ALTER TABLE series 
+        ADD COLUMN image TEXT
+      `);
+      console.log('✅ Dodano kolumnę image do tabeli series');
+    } catch (error) {
+      console.log('Kolumna image już istnieje w tabeli series');
+    }
+
+    try {
+      await db.run(`
+        ALTER TABLE series 
+        ADD COLUMN color TEXT DEFAULT '#3B82F6'
+      `);
+      console.log('✅ Dodano kolumnę color do tabeli series');
+    } catch (error) {
+      console.log('Kolumna color już istnieje w tabeli series');
+    }
+      
+    // Aktualizuj istniejące serie z domyślnymi kolorami
+    await db.run(`
+      UPDATE series SET color = CASE
+        WHEN name LIKE '%Biznes%' THEN '#3B82F6'
+        WHEN name LIKE '%Technologia%' OR name LIKE '%Technolog%' THEN '#10B981'
+        WHEN name LIKE '%Nauka%' OR name LIKE '%Nauk%' THEN '#8B5CF6'
+        WHEN name LIKE '%Historia%' OR name LIKE '%Histor%' THEN '#EF4444'
+        WHEN name LIKE '%Marketing%' THEN '#F59E0B'
+        WHEN name LIKE '%Zdrowie%' THEN '#EC4899'
+        WHEN name LIKE '%Kultura%' THEN '#14B8A6'
+        WHEN name LIKE '%Sport%' THEN '#84CC16'
+        ELSE '#3B82F6'
+      END WHERE color IS NULL OR color = '#3B82F6'
+    `);
+
+    // Najpierw usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
+    await db.run(`
+      DELETE FROM series 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM series 
+        GROUP BY name
+      )
+    `);
+    console.log('✅ Usunięto duplikaty serii');
+
+    // Spróbuj dodać UNIQUE constraint
+    await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_series_name ON series(name)');
+    console.log('✅ Dodano UNIQUE constraint na nazwę serii');
+    
+    // Zaktualizuj wersję bazy danych
+    await db.run(`PRAGMA user_version = ${DB_VERSION}`);
 
     // Tabela odcinków
     await db.run(`

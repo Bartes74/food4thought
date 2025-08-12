@@ -63,7 +63,11 @@
     "test:e2e:performance": "node src/client/__tests__/e2e/test-performance.js",
     "test:e2e:fast": "playwright test --project=chromium --workers=4",
     "test:e2e:all-browsers": "playwright test --project=chromium --project=firefox --project=webkit",
-    "start:test": "concurrently \"npm run dev\" \"npm run client\" --kill-others"
+    "start:test": "concurrently \"npm run dev\" \"npm run client\" --kill-others",
+    "test:register": "node test-registration.js",
+    "test:register:batch": "node test-registration-batch.js",
+    "check:tokens": "node check-verification-tokens.js",
+    "test:users": "node test-user-management.js"
   },
   "keywords": [],
   "author": "",
@@ -79,7 +83,8 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.9.17",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^6.10.1",
     "sqlite3": "^5.1.7"
   },
   "devDependencies": {

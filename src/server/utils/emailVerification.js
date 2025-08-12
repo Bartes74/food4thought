@@ -1,16 +1,23 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import pkg from 'nodemailer';
+const { createTransport } = pkg;
 import { getDb } from '../database.js';
 
 /**
  * Generuje token weryfikacyjny dla email
  */
 export const generateVerificationToken = (userId, email) => {
-  return jwt.sign(
-    { userId, email, type: 'email_verification' },
-    process.env.JWT_SECRET || 'your-secret-key',
-    { expiresIn: '24h' }
-  );
+  try {
+    return jwt.sign(
+      { userId, email, type: 'email_verification' },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '24h' }
+    );
+  } catch (error) {
+    console.error('Error generating verification token:', error);
+    throw error;
+  }
 };
 
 /**
@@ -32,13 +39,18 @@ export const verifyEmailToken = (token) => {
  * Zapisuje token weryfikacyjny do bazy danych
  */
 export const saveVerificationToken = async (userId, token) => {
-  const db = await getDb();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 godziny
-  
-  await db.run(
-    'INSERT OR REPLACE INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)',
-    [userId, token, expiresAt.toISOString()]
-  );
+  try {
+    const db = await getDb();
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 godziny
+    
+    await db.run(
+      'INSERT OR REPLACE INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)',
+      [userId, token, expiresAt.toISOString()]
+    );
+  } catch (error) {
+    console.error('Error saving verification token:', error);
+    throw error;
+  }
 };
 
 /**
@@ -122,19 +134,78 @@ export const generateVerificationEmail = (email, verificationUrl) => {
 };
 
 /**
- * Wysyła email weryfikacyjny (mock - w rzeczywistej aplikacji użyj nodemailer)
+ * Tworzy transporter email
+ */
+const createTransporter = () => {
+  // Konfiguracja dla Zenbox SMTP
+  const transporter = createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.zenbox.pl',
+    port: process.env.EMAIL_PORT || 587,
+    secure: false, // true dla 465, false dla innych portów
+    auth: {
+      user: process.env.EMAIL_USER || 'food4thought@dajer.pl',
+      pass: process.env.EMAIL_PASS || 'Dunczyk1974!'
+    },
+    tls: {
+      rejectUnauthorized: false // Dla niektórych serwerów SMTP
+    }
+  });
+  
+  return transporter;
+};
+
+/**
+ * Wysyła email weryfikacyjny
  */
 export const sendVerificationEmail = async (email, verificationUrl) => {
-  // W rzeczywistej aplikacji użyj nodemailer lub innej biblioteki
-  console.log('📧 Email weryfikacyjny wysłany na:', email);
-  console.log('🔗 Link weryfikacyjny:', verificationUrl);
-  
-  // Dla celów deweloperskich, wyświetlamy link w konsoli
-  console.log('\n=== EMAIL WERYFIKACYJNY ===');
-  console.log('Do:', email);
-  console.log('Temat: Potwierdź swój adres email - Food 4 Thought');
-  console.log('Link:', verificationUrl);
-  console.log('===========================\n');
-  
-  return true;
+  try {
+    // Sprawdź czy konfiguracja email jest dostępna
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+    
+    if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com') {
+      // Fallback do mock email dla celów deweloperskich
+      console.log('📧 Email weryfikacyjny wysłany na:', email);
+      console.log('🔗 Link weryfikacyjny:', verificationUrl);
+      console.log('\n=== EMAIL WERYFIKACYJNY ===');
+      console.log('Do:', email);
+      console.log('Temat: Potwierdź swój adres email - Food 4 Thought');
+      console.log('Link:', verificationUrl);
+      console.log('===========================\n');
+      console.log('⚠️  Uwaga: Konfiguracja email nie jest ustawiona. Email nie został wysłany.');
+      console.log('   Aby wysyłać rzeczywiste emaile, ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS');
+      return true;
+    }
+    
+    // Wysyłanie rzeczywistego emaila
+    const transporter = createTransporter();
+    const emailHtml = generateVerificationEmail(email, verificationUrl);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || emailUser,
+      to: email,
+      subject: 'Potwierdź swój adres email - Food 4 Thought',
+      html: emailHtml
+    };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log('📧 Email weryfikacyjny wysłany pomyślnie:', info.messageId);
+    console.log('📧 Do:', email);
+    console.log('🔗 Link weryfikacyjny:', verificationUrl);
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Błąd wysyłania emaila weryfikacyjnego:', error);
+    
+    // Fallback do mock email w przypadku błędu
+    console.log('📧 Fallback: Email weryfikacyjny (mock)');
+    console.log('🔗 Link weryfikacyjny:', verificationUrl);
+    console.log('\n=== EMAIL WERYFIKACYJNY ===');
+    console.log('Do:', email);
+    console.log('Temat: Potwierdź swój adres email - Food 4 Thought');
+    console.log('Link:', verificationUrl);
+    console.log('===========================\n');
+    
+    return true; // Nie rzucamy błędu, żeby nie przerwać procesu rejestracji
+  }
 };

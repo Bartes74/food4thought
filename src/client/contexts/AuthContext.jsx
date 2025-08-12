@@ -77,8 +77,13 @@ export const AuthProvider = ({ children }) => {
         confirmPassword 
       })
       
-      // Nowa rejestracja nie zwraca tokenu - użytkownik musi potwierdzić email
-      return { success: true }
+      // Zwracamy dane użytkownika, informację o sukcesie i token weryfikacyjny
+      return { 
+        success: true, 
+        user: response.data.user,
+        message: response.data.message,
+        verificationToken: response.data.verificationToken
+      }
     } catch (error) {
       return { 
         success: false, 

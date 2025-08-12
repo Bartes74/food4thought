@@ -13,9 +13,11 @@ const LoginPage = () => {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState('login') // 'login', 'register', 'reset'
+  const [mode, setMode] = useState('login') // 'login', 'register', 'reset', 'verification'
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [verificationToken, setVerificationToken] = useState('')
+  const [registeredEmail, setRegisteredEmail] = useState('')
   
   const navigate = useNavigate()
   const { login, register } = useAuth()
@@ -63,15 +65,11 @@ const LoginPage = () => {
 
       const result = await register(email, password, confirmPassword)
       if (result.success) {
-        // Po rejestracji pokazujemy komunikat o weryfikacji email
-        setError('Konto zostało utworzone! Sprawdź swój email, aby potwierdzić adres.')
-        setTimeout(() => {
-          setMode('login')
-          setError('')
-          setEmail('')
-          setPassword('')
-          setConfirmPassword('')
-        }, 5000)
+        // Po rejestracji pokazujemy link aktywacyjny
+        setVerificationToken(result.verificationToken)
+        setRegisteredEmail(email)
+        setMode('verification')
+        setError('')
       } else {
         if (result.error.includes('zarejestrowany') || result.error.includes('registered')) {
           setError(t('register.emailTaken'))
@@ -86,6 +84,38 @@ const LoginPage = () => {
     }
 
     setLoading(false)
+  }
+
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setError('Link skopiowany do schowka!')
+      setTimeout(() => setError(''), 2000)
+    } catch (err) {
+      setError('Nie udało się skopiować linku')
+      setTimeout(() => setError(''), 2000)
+    }
+  }
+
+  const handleVerification = async () => {
+    try {
+      const response = await fetch(`/api/auth/verify-email?token=${verificationToken}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        setError('Email został pomyślnie zweryfikowany! Możesz się teraz zalogować.')
+        setTimeout(() => {
+          setMode('login')
+          setError('')
+          setVerificationToken('')
+          setRegisteredEmail('')
+        }, 3000)
+      } else {
+        setError(data.error || 'Błąd weryfikacji email')
+      }
+    } catch (err) {
+      setError('Błąd podczas weryfikacji email')
+    }
   }
 
   const handleReset = async (e) => {
@@ -138,12 +168,14 @@ const LoginPage = () => {
               {mode === 'login' && t('login.subtitle')}
               {mode === 'register' && t('register.subtitle')}
               {mode === 'reset' && t('reset.subtitle')}
+              {mode === 'verification' && 'Weryfikacja Email'}
             </p>
           </div>
 
           {/* Formularz */}
           <div className="bg-white dark:bg-dark-surface rounded-2xl p-8 shadow-xl transition-colors duration-300">
-            <form onSubmit={mode === 'reset' ? handleReset : handleSubmit} className="space-y-6">
+            {mode !== 'verification' && (
+              <form onSubmit={mode === 'reset' ? handleReset : handleSubmit} className="space-y-6">
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-light-text dark:text-gray-300 mb-2">
@@ -266,9 +298,66 @@ const LoginPage = () => {
                 )}
               </button>
             </form>
+            )}
+
+            {/* Tryb weryfikacji email */}
+            {mode === 'verification' && (
+              <div className="mt-6 p-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                <div className="text-center mb-4">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <span className="text-2xl text-green-600">✓</span>
+                  </div>
+                  <h3 className="text-lg font-semibold text-green-800 dark:text-green-200 mb-2">
+                    Konto zostało utworzone!
+                  </h3>
+                  <p className="text-green-700 dark:text-green-300 text-sm">
+                    Kliknij poniższy link, aby zweryfikować swój adres email:
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="p-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Link weryfikacyjny:</p>
+                    <p className="text-sm font-mono text-green-700 dark:text-green-300 break-all">
+                      {`${window.location.origin}/verify-email?token=${verificationToken}`}
+                    </p>
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => copyToClipboard(`${window.location.origin}/verify-email?token=${verificationToken}`)}
+                      className="flex-1 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      📋 Kopiuj link
+                    </button>
+                    <button
+                      onClick={handleVerification}
+                      className="flex-1 py-2 px-3 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      ✅ Weryfikuj teraz
+                    </button>
+                  </div>
+                  
+                  <div className="text-center">
+                    <button
+                      onClick={() => {
+                        setMode('login')
+                        setVerificationToken('')
+                        setRegisteredEmail('')
+                        setError('')
+                      }}
+                      className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 text-sm transition-colors"
+                    >
+                      ← Wróć do logowania
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Linki nawigacyjne */}
-            <div className="mt-6 text-center space-y-2">
+            {mode !== 'verification' && (
+              <div className="mt-6 text-center space-y-2">
               {mode === 'login' && (
                 <>
                   <button
@@ -317,6 +406,7 @@ const LoginPage = () => {
                 </button>
               )}
             </div>
+            )}
           </div>
 
           {/* Informacja dla developmentu */}

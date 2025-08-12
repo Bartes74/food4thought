@@ -116,10 +116,12 @@ router.post('/register', async (req, res) => {
     
     res.status(201).json({
       message: 'Konto zostało utworzone. Sprawdź swój email, aby potwierdzić adres.',
-      user: { id: result.lastID, email, role: 'user', email_verified: false }
+      user: { id: result.lastID, email, role: 'user', email_verified: false },
+      verificationToken: verificationToken // Dodajemy token do odpowiedzi
     });
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Błąd serwera podczas rejestracji' });
   }
 });

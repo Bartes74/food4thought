@@ -1,351 +1,178 @@
-# Food 4 Thought 🎧
+# Food 4 Thought - Aplikacja do słuchania podcastów o AI
 
-Aplikacja do zarządzania podcastami i odcinkami audio z systemem osiągnięć i statystyk.
+Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencji, z systemem osiągnięć, statystykami i zarządzaniem użytkownikami.
 
-## 🚀 Funkcje
+## 🚀 Funkcjonalności
 
-- **Zarządzanie seriami** - dodawanie, edycja i usuwanie serii podcastów
-- **Zarządzanie odcinkami** - dodawanie odcinków z metadanymi, tematami i linkami
-- **System ulubionych** - dodawanie odcinków do ulubionych z wyszukiwaniem
-- **Statystyki użytkownika** - śledzenie postępów i historii słuchania
-- **System osiągnięć** - 19 unikalnych odznak za różne aktywności
-- **Panel administratora** - zarządzanie użytkownikami i statystykami
-- **Responsywny design** - aplikacja działa na wszystkich urządzeniach
-- **Ciemny/jasny motyw** - wybór preferowanego wyglądu
-- **Wielojęzyczność** - obsługa polskiego i angielskiego
-- **Automatyczne ładowanie ostatniego odcinka** - po zalogowaniu
+### Dla użytkowników:
+- **Słuchanie podcastów** - odtwarzacz audio z kontrolą prędkości
+- **System osiągnięć** - 18 różnych osiągnięć do zdobycia
+- **Statystyki osobiste** - śledzenie postępów i czasu słuchania
+- **Ulubione** - zapisywanie ulubionych odcinków
+- **Oceny i komentarze** - ocenianie i komentowanie odcinków
+- **Weryfikacja email** - system potwierdzania adresu email
+
+### Dla administratorów:
+- **Panel administracyjny** - zarządzanie użytkownikami i treściami
+- **Statystyki systemu** - przegląd aktywności użytkowników
+- **Zarządzanie seriami** - dodawanie i edycja serii podcastów
+- **Zarządzanie odcinkami** - upload i edycja odcinków
 
 ## 🛠️ Technologie
 
-- **Frontend**: React 18, Vite 6, Tailwind CSS
-- **Backend**: Node.js 24, Express.js 4
-- **Baza danych**: SQLite 3 z WAL mode
-- **Autoryzacja**: JWT (JSON Web Tokens)
-- **Testy**: Jest, Supertest, Playwright (E2E)
-- **Narzędzia**: Nodemon, ESLint, Prettier
+- **Frontend**: React.js, Vite, Tailwind CSS
+- **Backend**: Node.js, Express.js
+- **Baza danych**: SQLite
+- **Autentykacja**: JWT (JSON Web Tokens)
+- **Email**: Nodemailer (z fallback na mock)
+- **Testy**: Playwright (E2E), Node.js scripts
 
 ## 📦 Instalacja
 
-### Wymagania
-- Node.js 18+ 
-- npm 9+
-
-### Kroki instalacji
-
-1. **Klonowanie repozytorium**
+1. **Klonuj repozytorium:**
 ```bash
-git clone https://github.com/Bartes74/food4thought.git
+git clone <repository-url>
 cd food4thought
 ```
 
-2. **Instalacja zależności**
+2. **Zainstaluj zależności:**
 ```bash
 npm install
 ```
 
-3. **Konfiguracja środowiska**
+3. **Uruchom aplikację:**
 ```bash
-cp .env.example .env
-# Edytuj .env i ustaw JWT_SECRET
-```
+# Uruchom serwer (port 3001)
+npm start
 
-4. **Inicjalizacja bazy danych**
-```bash
-npm run db:init
-```
-
-## 🚀 Uruchamianie
-
-### Tryb deweloperski
-```bash
-# Terminal 1 - Backend
-npm run dev
-
-# Terminal 2 - Frontend  
+# W nowym terminalu uruchom klienta (port 3000)
 npm run client
 ```
 
-### Tryb produkcyjny
-```bash
-npm run build
-npm start
-```
-
-## 📱 Dostęp do aplikacji
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:3001
-- **Dokumentacja API**: http://localhost:3001/api/docs
-
-## 👤 Konta testowe
-
-- **Administrator**: `admin@food4thought.local` / `admin`
-- **Użytkownik testowy**: `test@example.com` / `test123`
-
-## 🔧 Nowe funkcjonalności (v2.1)
-
-### Uproszczona logika statusów odcinków
-Aplikacja używa teraz tylko tabeli `user_progress` do określania statusu odcinków:
-
-```javascript
-// Nowe pola w user_progress
-{
-  user_position: 300,        // Pozycja w sekundach
-  user_completed: 0,         // 0 = nieukończony, 1 = ukończony
-  user_last_played: '2024-01-01T00:00:00Z'  // Ostatnie słuchanie
-}
-
-// Logika statusów:
-// - Nowy: brak wpisu w user_progress
-// - W trakcie: user_position > 0 && user_completed = 0
-// - Ukończony: user_completed = 1
-```
-
-### Automatyczne ładowanie ostatniego odcinka
-- Po zalogowaniu aplikacja automatycznie ładuje ostatnio słuchany odcinek
-- Endpoint `/api/episodes/last-played` zwraca najnowszy odcinek z `user_progress`
-- Player zapamiętuje pozycję odtwarzania
-
-### Struktura odcinków użytkownika
-Endpoint `/api/episodes/my` zwraca obiekt z trzema kategoriami:
-```javascript
-{
-  new: [...],           // Nowe odcinki (brak wpisu w user_progress)
-  inProgress: [...],    // Odcinki w trakcie słuchania (user_position > 0)
-  completed: [...]      // Ukończone odcinki (user_completed = 1)
-}
-```
-
-### System ulubionych
-- Endpoint `/api/episodes/favorites` z wyszukiwaniem
-- Informacje o dacie dodania do ulubionych
-- Grupowanie ulubionych według serii
-
-### Cascade Delete
-- Usuwanie odcinków i serii usuwa wszystkie powiązane dane
-- Zachowanie integralności bazy danych
-
-### Informacje o serii
-Wszystkie endpointy odcinków zawierają:
-- `series_name` - Nazwa serii
-- `series_color` - Kolor serii  
-- `series_image` - Obraz serii
-
-### System osiągnięć (Naprawiony)
-- **19 unikalnych osiągnięć** (poprawiono z 1928 duplikatów)
-- Automatyczne odblokowywanie na podstawie aktywności
-- Śledzenie postępu w czasie rzeczywistym
-- Kategorie: słuchanie, oceny, ulubione, serie
-
-## 📊 API Endpoints
-
-### Autoryzacja
-- `POST /api/auth/login` - Logowanie
-- `POST /api/auth/register` - Rejestracja
-- `GET /api/auth/me` - Informacje o użytkowniku
-
-### Odcinki
-- `GET /api/episodes/my` - Odcinki użytkownika (nowa struktura)
-- `GET /api/episodes/favorites` - Ulubione odcinki
-- `GET /api/episodes/my/top-rated` - Najwyżej oceniane
-- `GET /api/episodes/:id` - Szczegóły odcinka
-- `GET /api/episodes/last-played` - Ostatnio słuchany odcinek
-- `POST /api/episodes/:id/progress` - Zapisywanie postępu
-- `POST /api/episodes/:id/favorite` - Dodawanie do ulubionych
-- `DELETE /api/episodes/:id/favorite` - Usuwanie z ulubionych
-- `POST /api/episodes/:id/rating` - Ocena odcinka
-- `GET /api/episodes/:id/rating` - Pobieranie oceny użytkownika
-- `GET /api/episodes/:id/average-rating` - Średnia ocena odcinka
-- `DELETE /api/episodes/:id` - Usuwanie odcinka (admin)
-
-### Serii
-- `GET /api/series` - Lista serii
-- `GET /api/series/:id` - Szczegóły serii
-- `DELETE /api/series/:id` - Usuwanie serii (admin)
-
-### Statystyki
-- `GET /api/users/:id/stats` - Statystyki użytkownika
-- `GET /api/users/series-stats` - Statystyki serii
-- `GET /api/achievements` - Osiągnięcia użytkownika
-
-### Administrator
-- `GET /api/admin/stats` - Statystyki systemu
-- `GET /api/admin/users` - Lista użytkowników
-- `POST /api/admin/users` - Tworzenie użytkowników
-- `PUT /api/admin/users/:id/role` - Zmiana roli
-- `DELETE /api/admin/users/:id` - Usuwanie użytkowników
-
-### Osiągnięcia
-- `POST /api/achievements/record-session` - Zapisywanie sesji słuchania
-
 ## 🧪 Testy
 
-### Uruchamianie testów
+### Skrypty testowe:
 ```bash
-# Wszystkie testy
-npm test
+# Test rejestracji użytkowników (interaktywny)
+npm run test:register
 
-# Testy z pokryciem
-npm run test:coverage
+# Test rejestracji użytkowników (batch)
+npm run test:register:batch
 
-# Testy E2E (Playwright)
+# Test zarządzania użytkownikami (user, admin, super-admin)
+npm run test:users
+
+# Sprawdź aktywne tokeny weryfikacyjne
+npm run check:tokens
+```
+
+### Testy E2E:
+```bash
+# Uruchom testy Playwright
 npm run test:e2e
 
-# Konkretne testy
-npm test -- --grep "Episodes"
+# Uruchom testy z UI
+npm run test:e2e:ui
 ```
 
-### Struktura testów
-- `src/server/__tests__/` - Testy backendu (Jest)
-- `src/client/__tests__/e2e/` - Testy E2E (Playwright)
-- `playwright/` - Konfiguracja Playwright
+## 🔧 Konfiguracja
 
-### Status testów
-- **Backend**: 152/152 testów przechodzi (100%) ✅
-- **E2E**: Wszystkie testy przechodzi ✅
-- **Pokrycie**: Kompletne pokrycie funkcjonalności
+### Zmienne środowiskowe:
+```env
+# Email (opcjonalne - aplikacja używa fallback)
+EMAIL_USER=your-email@domain.com
+EMAIL_PASS=your-password
 
-## 🗄️ Baza danych
-
-### Tabeli
-- `users` - Użytkownicy i role
-- `series` - Serii podcastów
-- `episodes` - Odcinki z metadanymi
-- `user_progress` - Postęp użytkownika (pozycja, ukończenie, ostatnie słuchanie)
-- `listening_sessions` - Sesje słuchania (dla osiągnięć)
-- `user_favorites` - Ulubione odcinki
-- `ratings` - Oceny odcinków
-- `achievements` - 19 unikalnych osiągnięć
-- `user_achievements` - Osiągnięcia użytkowników
-
-### Struktura user_progress
-```sql
-CREATE TABLE user_progress (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  episode_id INTEGER NOT NULL,
-  position INTEGER DEFAULT 0,        -- Pozycja w sekundach
-  completed INTEGER DEFAULT 0,       -- 0 = nieukończony, 1 = ukończony
-  last_played DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
-  UNIQUE(user_id, episode_id)
-);
+# JWT Secret (automatycznie generowany)
+JWT_SECRET=your-jwt-secret
 ```
 
-### Migracje
-```bash
-npm run db:migrate
-npm run db:seed
-```
+### Baza danych:
+- Automatyczna inicjalizacja przy pierwszym uruchomieniu
+- Wszystkie tabele i dane początkowe są tworzone automatycznie
+- System osiągnięć jest inicjalizowany z 18 predefiniowanymi osiągnięciami
 
-### Naprawa duplikatów osiągnięć
-Aplikacja zawiera skrypt `fix_achievements_duplicates.sql` do naprawy duplikatów w tabeli osiągnięć:
-```sql
--- Usuń duplikaty osiągnięć, zostawiając tylko pierwszy z każdej grupy
-DELETE FROM achievements
-WHERE id NOT IN (
-  SELECT MIN(id)
-  FROM achievements
-  GROUP BY name, requirement_type, requirement_value
-);
+## 📊 Struktura bazy danych
 
--- Usuń osierocone rekordy w user_achievements
-DELETE FROM user_achievements
-WHERE achievement_id NOT IN (SELECT id FROM achievements);
-```
+### Główne tabele:
+- `users` - użytkownicy systemu
+- `series` - serie podcastów
+- `episodes` - odcinki podcastów
+- `user_progress` - postęp użytkowników
+- `user_stats` - statystyki użytkowników
+- `achievements` - system osiągnięć
+- `user_achievements` - osiągnięcia użytkowników
+- `ratings` - oceny odcinków
+- `comments` - komentarze
+- `user_favorites` - ulubione odcinki
 
-## 🔒 Bezpieczeństwo
+## 🎯 System osiągnięć
 
-- **JWT Tokens** - Bezpieczna autoryzacja
-- **Hashowanie haseł** - bcrypt z salt
-- **CORS** - Konfigurowalne origins
-- **Rate Limiting** - Ochrona przed spamem
-- **Input Validation** - Walidacja danych wejściowych
-- **SQL Injection Protection** - Parametryzowane zapytania
+Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
+- **Streaks** - słuchanie przez kolejne dni
+- **Precision** - dokładne ukończenie odcinków
+- **Speed** - słuchanie z wysoką prędkością
+- **Daily Activity** - aktywność dzienna
+- **Time Patterns** - wzorce czasowe (nocne/poranne słuchanie)
+- **General** - ogólne osiągnięcia
 
-## 🚀 Deployment
+## 🔐 Bezpieczeństwo
 
-### Docker
-```bash
-docker build -t food4thought .
-docker run -p 3000:3000 food4thought
-```
+- **Autentykacja JWT** - bezpieczne tokeny sesji
+- **Weryfikacja email** - potwierdzanie adresów email
+- **Role użytkowników** - user, admin, super_admin
+- **Ochrona endpointów** - middleware autoryzacji
+- **Walidacja danych** - sprawdzanie poprawności inputów
 
-### Vercel/Netlify
-```bash
-npm run build
-# Wgraj folder dist/
-```
+## 🐛 Znane problemy
 
-### VPS
-```bash
-npm run build
-npm start
-```
+- **Usuwanie użytkowników przez API** - nie działa dla użytkowników z danymi (błąd FOREIGN KEY)
+  - **Rozwiązanie**: Skrypty testowe automatycznie czyszczą dane przez SQL
+- **Email verification** - używa fallback (mock) zamiast rzeczywistego SMTP
+  - **Rozwiązanie**: Ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS
 
-## 🤝 Contributing
+## 📝 Dokumentacja API
 
-1. Fork projektu
-2. Utwórz branch: `git checkout -b feature/nazwa-funkcji`
-3. Commit zmiany: `git commit -m 'Dodaj funkcję'`
-4. Push do branch: `git push origin feature/nazwa-funkcji`
-5. Otwórz Pull Request
+### Endpointy autoryzacji:
+- `POST /api/auth/register` - rejestracja użytkownika
+- `POST /api/auth/login` - logowanie
+- `POST /api/auth/verify-email` - weryfikacja email
 
-## 📝 Licencja
+### Endpointy treści:
+- `GET /api/series` - lista serii
+- `GET /api/episodes` - lista odcinków
+- `GET /api/episodes/:id` - szczegóły odcinka
 
-MIT License - zobacz [LICENSE](LICENSE) dla szczegółów.
+### Endpointy użytkownika:
+- `GET /api/users/profile` - profil użytkownika
+- `PUT /api/users/profile` - aktualizacja profilu
+- `GET /api/achievements` - osiągnięcia użytkownika
 
-## 🐛 Raportowanie błędów
+### Endpointy administratora:
+- `GET /api/users` - lista wszystkich użytkowników
+- `DELETE /api/users/:id` - usuwanie użytkownika
+- `GET /api/admin/stats` - statystyki systemu
 
-Użyj [GitHub Issues](https://github.com/Bartes74/food4thought/issues) do raportowania błędów i sugestii.
+## 🤝 Wkład w projekt
 
-## 📞 Wsparcie
+1. Fork repozytorium
+2. Utwórz branch dla nowej funkcjonalności
+3. Commit zmiany
+4. Push do brancha
+5. Utwórz Pull Request
 
-- **Email**: support@food4thought.local
-- **Discord**: [Serwer wsparcia](https://discord.gg/food4thought)
-- **Dokumentacja**: [Wiki](https://github.com/Bartes74/food4thought/wiki)
+## 📄 Licencja
 
-## 🎯 Roadmap
+Ten projekt jest licencjonowany pod licencją MIT.
 
-### v2.2 (Następna wersja)
-- [ ] System powiadomień
-- [ ] Eksport danych
-- [ ] Integracja z Spotify
-- [ ] Mobile app (React Native)
+## 🆘 Wsparcie
 
-### v2.3
-- [ ] System komentarzy
-- [ ] Playlisty
-- [ ] Synchronizacja między urządzeniami
-- [ ] API dla zewnętrznych aplikacji
-
-## 🔧 Ostatnie naprawy
-
-### Uproszczenie logiki statusów (v2.1.0)
-- **Problem**: Skomplikowana logika używająca wielu tabel do określania statusu odcinków
-- **Rozwiązanie**: Uproszczenie do używania tylko tabeli `user_progress`
-- **Rezultat**: Szybsze zapytania, prostsza logika, lepsza wydajność
-- **Pola**: `user_position`, `user_completed`, `user_last_played`
-
-### Naprawa testów (v2.0.1)
-- **Backend**: 152/152 testów przechodzi (100%)
-- **E2E**: Wszystkie testy Playwright przechodzi
-- **Dostosowano**: Testy do nowej logiki `user_progress`
-- **Dodano**: Minimalny test do `test-app-simplified.js`
-
-### Naprawa duplikatów osiągnięć (v2.0.0)
-- **Problem**: Baza danych zawierała 1928 duplikatów osiągnięć zamiast 19 unikalnych
-- **Rozwiązanie**: Usunięto duplikaty i osierocone rekordy
-- **Rezultat**: Poprawna liczba osiągnięć (19) wyświetlana w UI
-- **Skrypt**: `fix_achievements_duplicates.sql` do przyszłej naprawy
-
-### Naprawa testów (v2.0.0)
-- **Backend**: 142/142 testów przechodzi (100%)
-- **E2E**: Wszystkie testy Playwright przechodzi
-- **Dodano**: `data-testid` atrybuty dla lepszego testowania
-- **Poprawiono**: Konfigurację Playwright i timeouty
+W przypadku problemów:
+1. Sprawdź sekcję "Znane problemy"
+2. Uruchom testy: `npm run test:users`
+3. Sprawdź logi serwera
+4. Utwórz issue w repozytorium
 
 ---
 
-**Food 4 Thought** - Twój osobisty menedżer podcastów! 🎧✨ 
+**Food 4 Thought** - Twoja podróż w świat sztucznej inteligencji przez podcasty! 🎧🤖 

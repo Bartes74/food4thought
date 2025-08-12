@@ -177,19 +177,49 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
       }
     }
     
-    const result = await db.run(
-      'DELETE FROM users WHERE id = ?',
-      [userId]
-    );
+    // Usuń powiązane dane użytkownika za pomocą jednego zapytania SQL
+    console.log(`Deleting user ${userId} data...`);
+    
+    try {
+      // Usuń powiązane dane pojedynczo
+      console.log('Deleting all related data...');
+      
+      await db.get('DELETE FROM user_progress WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM user_favorites WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM ratings WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM comments WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM user_achievements WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM user_stats WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM listening_sessions WHERE user_id = ?', [userId]);
+      await db.get('DELETE FROM password_resets WHERE user_id = ?', [userId]);
+      
+      console.log('All related data deleted successfully');
+    } catch (deleteError) {
+      console.error('Error deleting related data:', deleteError);
+      console.error('Error message:', deleteError.message);
+      console.error('Error code:', deleteError.code);
+      throw deleteError;
+    }
+    
+    // Na końcu usuń użytkownika
+    console.log('Deleting user...');
+    const result = await db.run('DELETE FROM users WHERE id = ?', [userId]);
     
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
     }
     
+    console.log('User deleted successfully');
     res.json({ message: 'Użytkownik usunięty' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({ error: 'Błąd serwera' });
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Błąd serwera', details: error.message });
   }
 });
 
