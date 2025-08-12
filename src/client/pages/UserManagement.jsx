@@ -185,7 +185,7 @@ const UserManagement = () => {
                       {u.email}
                     </h3>
                     <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                      • Utworzono: {new Date(u.created_at).toLocaleDateString('pl-PL')}
+                      • Utworzono: {u.created_at ? new Date(u.created_at).toLocaleDateString('pl-PL') : 'Nieznana data'}
                     </span>
                   </div>
                   

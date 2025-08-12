@@ -1,6 +1,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
+import EmailVerificationPage from './pages/EmailVerificationPage'
 import HomePage from './pages/HomePage'
 import AdminStatsPage from './pages/AdminStatsPage'
 import { AuthProvider } from './contexts/AuthContext'
@@ -24,6 +25,7 @@ function App() {
           <div className="min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-white transition-colors duration-300">
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/verify-email" element={<EmailVerificationPage />} />
               <Route
                 path="/"
                 element={

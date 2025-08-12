@@ -65,8 +65,12 @@ function createTestApp() {
   app.post('/api/auth/register', (req, res) => {
     const { email, password, confirmPassword } = req.body;
     
+    if (!email || !password || !confirmPassword) {
+      return res.status(400).json({ error: 'Email, hasło i potwierdzenie hasła są wymagane' });
+    }
+    
     if (password !== confirmPassword) {
-      return res.status(400).json({ error: 'Passwords do not match' });
+      return res.status(400).json({ error: 'Hasła nie są identyczne' });
     }
     
     // Sprawdź format email
@@ -75,19 +79,50 @@ function createTestApp() {
       return res.status(400).json({ error: 'Invalid email format' });
     }
     
-    // Sprawdź siłę hasła
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password too weak' });
+    // Sprawdź siłę hasła (nowe wymagania)
+    if (password.length < 8) {
+      return res.status(400).json({ 
+        error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+        details: ['Hasło musi mieć minimum 8 znaków']
+      });
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ 
+        error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+        details: ['Hasło musi zawierać przynajmniej jedną wielką literę']
+      });
+    }
+    
+    if (!/[a-z]/.test(password)) {
+      return res.status(400).json({ 
+        error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+        details: ['Hasło musi zawierać przynajmniej jedną małą literę']
+      });
+    }
+    
+    if (!/\d/.test(password)) {
+      return res.status(400).json({ 
+        error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+        details: ['Hasło musi zawierać przynajmniej jedną cyfrę']
+      });
+    }
+    
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      return res.status(400).json({ 
+        error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+        details: ['Hasło musi zawierać przynajmniej jeden znak specjalny']
+      });
     }
     
     // Sprawdź istniejący email
     if (email === 'admin@food4thought.local' || email === 'test@example.com') {
-      return res.status(400).json({ error: 'Email already exists' });
+      return res.status(400).json({ error: 'Użytkownik o tym emailu już istnieje' });
     }
     
     res.status(201).json({
-      message: 'User created successfully',
-      user: { id: 3, email, role: 'user' }
+      message: 'Konto zostało utworzone. Sprawdź swój email, aby potwierdzić adres.',
+      user: { id: 3, email, role: 'user', email_verified: false }
     });
   });
   
@@ -493,8 +528,20 @@ function createTestApp() {
     }
     
     res.json([
-      { id: 1, email: 'admin@food4thought.local', role: 'super_admin' },
-      { id: 2, email: 'test@example.com', role: 'user' }
+      { 
+        id: 1, 
+        email: 'admin@food4thought.local', 
+        role: 'super_admin',
+        created_at: '2024-01-01T00:00:00Z',
+        email_verified: true
+      },
+      { 
+        id: 2, 
+        email: 'test@example.com', 
+        role: 'user',
+        created_at: '2024-01-02T00:00:00Z',
+        email_verified: true
+      }
     ]);
   });
   

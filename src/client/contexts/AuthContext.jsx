@@ -63,24 +63,27 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       return { 
         success: false, 
-        error: error.response?.data?.error || 'Błąd logowania' 
+        error: error.response?.data?.error || 'Błąd logowania',
+        needsVerification: error.response?.data?.needsVerification
       }
     }
   }
 
-  const register = async (email, password) => {
+  const register = async (email, password, confirmPassword) => {
     try {
-      const response = await axios.post('/api/auth/register', { email, password })
-      const { token, user } = response.data
+      const response = await axios.post('/api/auth/register', { 
+        email, 
+        password, 
+        confirmPassword 
+      })
       
-      localStorage.setItem('token', token)
-      setUser(user)
-      
+      // Nowa rejestracja nie zwraca tokenu - użytkownik musi potwierdzić email
       return { success: true }
     } catch (error) {
       return { 
         success: false, 
-        error: error.response?.data?.error || 'Błąd rejestracji' 
+        error: error.response?.data?.error || 'Błąd rejestracji',
+        details: error.response?.data?.details
       }
     }
   }

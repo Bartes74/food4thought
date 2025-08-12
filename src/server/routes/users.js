@@ -122,7 +122,7 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const users = await db.all('SELECT id, email, role FROM users ORDER BY id');
+    const users = await db.all('SELECT id, email, role, created_at, email_verified FROM users ORDER BY id');
     res.json(users);
   } catch (error) {
     console.error('Get users error:', error);

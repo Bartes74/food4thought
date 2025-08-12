@@ -121,8 +121,8 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'newuser@example.com',
-          password: 'newpassword123',
-          confirmPassword: 'newpassword123'
+          password: 'NewPassword123!',
+          confirmPassword: 'NewPassword123!'
         });
 
       expect(response.status).toBe(201);
@@ -138,8 +138,8 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'mismatch@example.com',
-          password: 'password123',
-          confirmPassword: 'differentpassword'
+          password: 'NewPassword123!',
+          confirmPassword: 'DifferentPassword123!'
         });
 
       expect(response.status).toBe(400);
@@ -151,8 +151,8 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'test@example.com',
-          password: 'password123',
-          confirmPassword: 'password123'
+          password: 'NewPassword123!',
+          confirmPassword: 'NewPassword123!'
         });
 
       expect(response.status).toBe(400);
@@ -164,8 +164,8 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'invalid-email',
-          password: 'password123',
-          confirmPassword: 'password123'
+          password: 'NewPassword123!',
+          confirmPassword: 'NewPassword123!'
         });
 
       expect(response.status).toBe(400);
@@ -177,8 +177,8 @@ describe('Auth Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'weak@example.com',
-          password: '123',
-          confirmPassword: '123'
+          password: 'weak',
+          confirmPassword: 'weak'
         });
 
       expect(response.status).toBe(400);

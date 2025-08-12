@@ -35,7 +35,7 @@ async function initDatabase(db) {
           role TEXT DEFAULT 'user',
           preferences TEXT DEFAULT '{}',
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          email_verified BOOLEAN DEFAULT 1
+          email_verified BOOLEAN DEFAULT 0
         )
       `);
 
@@ -47,6 +47,19 @@ async function initDatabase(db) {
           expires_at DATETIME NOT NULL,
           used BOOLEAN DEFAULT 0,
           FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+
+      // Tabela weryfikacji email
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS email_verifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          token TEXT UNIQUE NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used BOOLEAN DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         )
       `);
 

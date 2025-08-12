@@ -64,8 +64,8 @@ describe('Simple Integration Tests', () => {
     it('should register new user successfully', async () => {
       const userData = {
         email: 'newuser3@example.com',
-        password: 'newpassword123',
-        confirmPassword: 'newpassword123'
+        password: 'NewPassword123!',
+        confirmPassword: 'NewPassword123!'
       };
 
       const response = await request(app)
@@ -84,8 +84,8 @@ describe('Simple Integration Tests', () => {
         .post('/api/auth/register')
         .send({
           email: 'mismatch@example.com',
-          password: 'password123',
-          confirmPassword: 'differentpassword'
+          password: 'NewPassword123!',
+          confirmPassword: 'DifferentPassword123!'
         });
 
       expect(response.status).toBe(400);

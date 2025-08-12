@@ -2,9 +2,15 @@
 
 Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym pliku.
 
-## [2.1.0] - 2024-12-31
+## [2.2.0] - 2024-12-31
 
 ### 🚀 Dodano
+- **Ulepszone bezpieczeństwo hasła** - minimum 8 znaków, wielkie/małe litery, cyfry, znaki specjalne
+- **Wskaźnik siły hasła** - wizualny pasek pokazujący siłę hasła w czasie rzeczywistym
+- **Potwierdzenie hasła** - użytkownik musi wprowadzić hasło dwukrotnie
+- **Double opt-in email verification** - użytkownik musi potwierdzić email przed zalogowaniem
+- **Strona weryfikacji email** - dedykowana strona do potwierdzania adresu email
+- **Ponowne wysyłanie emaila weryfikacyjnego** - możliwość ponownego wysłania linku
 - **Automatyczne ładowanie ostatniego odcinka** - po zalogowaniu aplikacja automatycznie ładuje ostatnio słuchany odcinek
 - **Endpoint `/api/episodes/last-played`** - zwraca najnowszy odcinek z `user_progress`
 - **Endpoint `/api/achievements/record-session`** - zapisywanie sesji słuchania dla osiągnięć
@@ -13,7 +19,10 @@ Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym p
 ### 🔧 Zmieniono
 - **Uproszczono logikę statusów odcinków** - teraz używa tylko tabeli `user_progress` zamiast `listening_sessions`
 - **Struktura odpowiedzi `/api/episodes/my`** - zaktualizowano komentarze opisujące logikę statusów
-- **Wersja aplikacji** - zaktualizowano do 2.1.0
+- **Wersja aplikacji** - zaktualizowano do 2.2.0
+- **Walidacja hasła** - zwiększono wymagania bezpieczeństwa z 6 do 8 znaków
+- **Proces rejestracji** - dodano potwierdzenie hasła i weryfikację email
+- **Logowanie** - sprawdza czy email jest zweryfikowany przed zalogowaniem
 
 ### 🐛 Naprawiono
 - **Testy backendu** - wszystkie 152 testy przechodzą (100%)
@@ -22,6 +31,8 @@ Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym p
 - **Dokumentacja** - zaktualizowano README.md z nową logiką i endpointami
 - **GitHub Actions CI/CD** - zaktualizowano przestarzałe akcje `actions/upload-artifact@v3` i `codecov/codecov-action@v3` do najnowszych wersji
 - **Zależności CI/CD** - dodano `audit-ci`, `eslint`, `prettier` do devDependencies
+- **Data utworzenia w panelu admina** - naprawiono wyświetlanie "Invalid Date" dla daty utworzenia konta
+- **Baza danych** - dodano tabelę `email_verifications` dla weryfikacji email
 
 ### 📊 Techniczne szczegóły
 - **Logika statusów**:
@@ -32,6 +43,17 @@ Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym p
   - `position` - pozycja w sekundach
   - `completed` - 0 = nieukończony, 1 = ukończony
   - `last_played` - timestamp ostatniego słuchania
+- **Walidacja hasła**:
+  - Minimum 8 znaków
+  - Przynajmniej jedna wielka litera (A-Z)
+  - Przynajmniej jedna mała litera (a-z)
+  - Przynajmniej jedna cyfra (0-9)
+  - Przynajmniej jeden znak specjalny (!@#$%^&*()_+-=[]{}|;':",./<>?)
+- **Email verification**:
+  - Token JWT ważny 24 godziny
+  - Tabela `email_verifications` w bazie danych
+  - Endpoint `/api/auth/verify-email` do weryfikacji
+  - Endpoint `/api/auth/resend-verification` do ponownego wysłania
 
 ### 🧪 Testy
 - **Backend**: 152/152 testów przechodzi ✅

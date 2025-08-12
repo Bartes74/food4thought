@@ -5,13 +5,17 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { useTheme } from '../contexts/ThemeContext'
 import LanguageSelector from '../components/LanguageSelector'
 import ThemeToggle from '../components/ThemeToggle'
+import PasswordStrengthIndicator from '../components/PasswordStrengthIndicator'
 
 const LoginPage = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState('login') // 'login', 'register', 'reset'
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   
   const navigate = useNavigate()
   const { login, register } = useAuth()
@@ -28,7 +32,11 @@ const LoginPage = () => {
       if (result.success) {
         navigate('/')
       } else {
-        setError(t('login.invalidCredentials'))
+        if (result.needsVerification) {
+          setError('Email nie został zweryfikowany. Sprawdź swoją skrzynkę email i kliknij link weryfikacyjny.')
+        } else {
+          setError(t('login.invalidCredentials'))
+        }
       }
     } else if (mode === 'register') {
       // Walidacja
@@ -42,20 +50,35 @@ const LoginPage = () => {
         setLoading(false)
         return
       }
-      if (password.length < 6) {
-        setError(t('register.passwordTooShort'))
+      if (!confirmPassword) {
+        setError('Potwierdzenie hasła jest wymagane')
+        setLoading(false)
+        return
+      }
+      if (password !== confirmPassword) {
+        setError('Hasła nie są identyczne')
         setLoading(false)
         return
       }
 
-      const result = await register(email, password)
+      const result = await register(email, password, confirmPassword)
       if (result.success) {
-        navigate('/')
+        // Po rejestracji pokazujemy komunikat o weryfikacji email
+        setError('Konto zostało utworzone! Sprawdź swój email, aby potwierdzić adres.')
+        setTimeout(() => {
+          setMode('login')
+          setError('')
+          setEmail('')
+          setPassword('')
+          setConfirmPassword('')
+        }, 5000)
       } else {
         if (result.error.includes('zarejestrowany') || result.error.includes('registered')) {
           setError(t('register.emailTaken'))
         } else if (result.error.includes('format')) {
           setError(t('register.invalidEmail'))
+        } else if (result.error.includes('bezpieczeństwa')) {
+          setError(result.error + ': ' + (result.details?.join(', ') || ''))
         } else {
           setError(result.error)
         }
@@ -143,16 +166,71 @@ const LoginPage = () => {
                   <label htmlFor="password" className="block text-sm font-medium text-light-text dark:text-gray-300 mb-2">
                     {t('common.password')}
                   </label>
-                  <input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-light-text dark:text-white placeholder-gray-400"
-                    placeholder={t('login.passwordPlaceholder')}
-                    required={mode === 'login'}
-                    minLength={mode === 'register' ? 6 : undefined}
-                  />
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 pr-12 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-light-text dark:text-white placeholder-gray-400"
+                      placeholder={t('login.passwordPlaceholder')}
+                      required={mode === 'login'}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {showPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                  
+                  {/* Wskaźnik siły hasła - tylko dla rejestracji */}
+                  {mode === 'register' && password && (
+                    <PasswordStrengthIndicator password={password} />
+                  )}
+                </div>
+              )}
+
+              {/* Potwierdzenie hasła - tylko dla rejestracji */}
+              {mode === 'register' && (
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-light-text dark:text-gray-300 mb-2">
+                    Potwierdź hasło
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-4 py-3 pr-12 bg-light-bg dark:bg-dark-bg border border-light-border dark:border-dark-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-light-text dark:text-white placeholder-gray-400"
+                      placeholder="Wprowadź hasło ponownie"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    >
+                      {showConfirmPassword ? '🙈' : '👁️'}
+                    </button>
+                  </div>
+                  
+                  {/* Wskaźnik zgodności haseł */}
+                  {confirmPassword && (
+                    <div className="mt-2 text-sm">
+                      {password === confirmPassword ? (
+                        <span className="text-green-600 flex items-center">
+                          <span className="mr-1">✓</span> Hasła są identyczne
+                        </span>
+                      ) : (
+                        <span className="text-red-600 flex items-center">
+                          <span className="mr-1">✗</span> Hasła nie są identyczne
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
