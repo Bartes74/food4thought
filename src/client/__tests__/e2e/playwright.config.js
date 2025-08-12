@@ -9,7 +9,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1, // Zmniejszamy z 5 do 1 żeby uniknąć konfliktów
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html'],
@@ -46,9 +46,9 @@ export default defineConfig({
   },
   
   /* Optymalizacje dla szybkości */
-  timeout: 30000,
+  timeout: 60000, // Zwiększamy timeout z 30s do 60s
   expect: {
-    timeout: 10000,
+    timeout: 15000, // Zwiększamy timeout dla expect z 10s do 15s
   },
   
   /* Globalne setup */

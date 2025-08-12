@@ -441,6 +441,7 @@ const HomePage = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Wyszukaj w tytułach i opisach odcinków..."
+                  data-testid="search-input"
                   className={`w-full px-4 py-3 pl-10 rounded-lg border ${
                     isDarkMode 
                       ? 'bg-dark-bg border-dark-border text-white placeholder-gray-400' 
@@ -560,7 +561,7 @@ const HomePage = () => {
 
             {/* Wyniki wyszukiwania */}
             {searchResults && (
-              <div className="mt-6">
+              <div className="mt-6" data-testid="search-results">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-light-text dark:text-white">
                     Wyniki wyszukiwania
@@ -672,12 +673,13 @@ const HomePage = () => {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-3" data-testid="episodes-list">
                   {getSortedEpisodes(episodes.new || []).map((episode) => (
                     <div
                       key={episode.id}
                       onClick={() => handleEpisodeSelect(episode.id)}
                       className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg shadow-lg transition-all duration-300 cursor-pointer hover:shadow-xl`}
+                      data-testid="episode-item"
                     >
                       <div className="p-4">
                         <div className="flex justify-between items-start">
@@ -751,6 +753,7 @@ const HomePage = () => {
                       key={episode.id}
                       onClick={() => handleEpisodeSelect(episode.id)}
                       className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg shadow-lg transition-all duration-300 cursor-pointer hover:shadow-xl`}
+                      data-testid="episode-item"
                     >
                       <div className="p-4">
                         <div className="flex justify-between items-start">
@@ -797,6 +800,7 @@ const HomePage = () => {
               <Link
                 to="/stats?tab=history"
                 className="px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+                data-testid="stats-link"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 

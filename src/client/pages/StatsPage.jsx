@@ -261,7 +261,7 @@ const getAllAchievements = () => {
         </h1>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex flex-wrap gap-2 mb-8" data-testid="stats-tabs">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 font-medium transition-colors ${
@@ -327,7 +327,7 @@ const getAllAchievements = () => {
         {/* Przegląd */}
         {activeTab === 'overview' && stats && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="overview-stats">
               <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
                 <div className="text-4xl mb-2">🎧</div>
                 <h3 className="text-lg font-semibold mb-1">Całkowity czas</h3>
@@ -385,7 +385,7 @@ const getAllAchievements = () => {
 
         {/* Statystyki według serii */}
         {activeTab === 'series' && seriesStats && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="series-stats">
             {seriesStats.map((series) => (
               <div key={series.id} className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
                 <div className="flex items-center justify-between mb-4">
@@ -436,8 +436,8 @@ const getAllAchievements = () => {
         )}
 
         {/* Wzorce słuchania */}
-        {activeTab === 'patterns' && stats && (
-          <div className="space-y-6">
+        {activeTab === 'patterns' && (
+          <div className="space-y-6" data-testid="listening-patterns">
             <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
               <h3 className="text-xl font-semibold mb-4">Twoje nawyki słuchania</h3>
               
@@ -467,7 +467,7 @@ const getAllAchievements = () => {
 
         {/* Osiągnięcia */}
         {activeTab === 'achievements' && (
-          <div className="space-y-8">
+          <div className="space-y-6" data-testid="achievements">
             {/* Motywacyjny komunikat */}
             <div className={`${isDarkMode ? 'bg-primary/10 border-primary/20' : 'bg-primary/5 border-primary/20'} rounded-xl p-6 border-2`}>
               <div className="text-center">
@@ -627,15 +627,19 @@ const getAllAchievements = () => {
           </div>
         )}
         {/* Historia */}
-{activeTab === 'history' && (
-  <HistorySection />
-)}
+        {activeTab === 'history' && (
+          <div data-testid="listening-history">
+            <HistorySection />
+          </div>
+        )}
 
         {/* Oceny */}
         {activeTab === 'ratings' && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="user-ratings">
+            <h2 className="text-2xl font-bold text-light-text dark:text-white mb-6">
+              Twoje oceny odcinków
+            </h2>
             <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-              <h3 className="text-xl font-semibold mb-4">⭐ Twoje najwyżej oceniane odcinki</h3>
               {topRatedEpisodes && topRatedEpisodes.length > 0 ? (
                 <div className="space-y-4">
                   {topRatedEpisodes.map((episode, index) => (

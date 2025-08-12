@@ -64,6 +64,9 @@ router.get('/my', authenticateToken, async (req, res) => {
     };
     
     episodes.forEach(episode => {
+      // Dodaj audioUrl do każdego odcinka z właściwą strukturą folderów
+      episode.audioUrl = `/audio/seria${episode.series_id}/polski/${episode.filename}`;
+      
       const completionRate = episode.user_completion_rate || 0;
       const hasEndTime = episode.user_end_time !== null;
       
@@ -106,6 +109,11 @@ router.get('/my/top-rated', authenticateToken, async (req, res) => {
       LIMIT 10
     `, [userId]);
     
+    // Dodaj audioUrl do każdego odcinka
+    topRatedEpisodes.forEach(episode => {
+      episode.audioUrl = `/audio/seria${episode.series_id}/polski/${episode.filename}`;
+    });
+    
     res.json(topRatedEpisodes);
   } catch (error) {
     console.error('Get top rated episodes error:', error);
@@ -143,6 +151,12 @@ router.get('/favorites', authenticateToken, async (req, res) => {
     query += ` ORDER BY uf.added_at DESC`;
     
     const favorites = await db.all(query, params);
+    
+    // Dodaj audioUrl do każdego ulubionego odcinka
+    favorites.forEach(episode => {
+      episode.audioUrl = `/audio/seria${episode.series_id}/polski/${episode.filename}`;
+    });
+    
     res.json(favorites);
   } catch (error) {
     console.error('Get favorites error:', error);
@@ -158,11 +172,19 @@ router.get('/:id', authenticateToken, async (req, res) => {
     const db = await getDb();
     const episodeId = parseInt(req.params.id);
     
-    const episode = await db.get('SELECT * FROM episodes WHERE id = ?', [episodeId]);
+    const episode = await db.get(`
+      SELECT e.*, s.id as series_id 
+      FROM episodes e 
+      JOIN series s ON e.series_id = s.id 
+      WHERE e.id = ?
+    `, [episodeId]);
     
     if (!episode) {
       return res.status(404).json({ error: 'Odcinek nie znaleziony' });
     }
+    
+    // Dodaj audioUrl do odpowiedzi z właściwą strukturą folderów
+    episode.audioUrl = `/audio/seria${episode.series_id}/polski/${episode.filename}`;
     
     res.json(episode);
   } catch (error) {

@@ -179,7 +179,7 @@ const SeriesManagement = () => {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto p-6" data-testid="series-management">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-light-text dark:text-white">
             Zarządzanie seriami
@@ -426,9 +426,9 @@ const SeriesManagement = () => {
                 Dodaj nową serię
               </h2>
               
-              <form onSubmit={handleAddSeries} className="space-y-4">
+              <form onSubmit={handleAddSeries} className="space-y-4" data-testid="add-series-form">
                 <div>
-                  <label className="block mb-2 text-sm">Nazwa serii *</label>
+                  <label className="block mb-2 text-sm">Nazwa serii</label>
                   <input
                     type="text"
                     value={newSeriesName}

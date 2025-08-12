@@ -78,7 +78,7 @@ const StarRating = ({
   };
   
   return (
-    <div className="flex items-center space-x-1">
+    <div className="flex items-center space-x-1" data-testid={readonly ? "average-rating" : "user-rating"}>
       {[0, 1, 2, 3, 4].map(renderStar)}
       {!readonly && (
         <span className={`text-xs ml-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>

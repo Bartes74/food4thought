@@ -4,8 +4,8 @@ async function globalSetup(config) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   
-  // Pre-login admin user to avoid repeated logins
-  await page.goto('http://localhost:3000');
+  // Go to login page
+  await page.goto('http://localhost:3000/login');
   
   // Wait for login form and login
   await page.waitForSelector('input[type="email"]');
@@ -13,7 +13,8 @@ async function globalSetup(config) {
   await page.fill('input[type="password"]', 'admin123');
   await page.click('button[type="submit"]');
   
-  // Wait for successful login
+  // Wait for successful login and navigation to main page
+  await page.waitForURL('http://localhost:3000/');
   await page.waitForSelector('header');
   
   // Save authentication state

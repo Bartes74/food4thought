@@ -298,7 +298,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   const showExpandButton = hasAdditionalInfo && episode.additional_info.length > 500;
 
   return (
-    <div className={`w-full max-w-4xl mx-auto ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-2xl shadow-xl p-6`}>
+    <div className={`w-full max-w-4xl mx-auto ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-2xl shadow-xl p-6`} data-testid="audio-player">
       {/* Ukryty element audio */}
       <audio
         ref={audioRef}
@@ -466,6 +466,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
             className={`p-4 rounded-full text-white transition-all transform hover:scale-105`}
             style={{ backgroundColor: seriesColor }}
             disabled={!episode.audioUrl}
+            aria-label={isPlaying ? "Pauza" : "Odtwórz"}
           >
             {isPlaying ? (
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -517,6 +518,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
             onClick={toggleFavorite}
             className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors`}
             title={isFavorite ? "Usuń z ulubionych" : "Dodaj do ulubionych"}
+            data-testid="favorite-button"
           >
             <svg 
               className={`w-6 h-6 transition-colors ${isFavorite ? 'text-red-500 fill-current' : ''}`} 

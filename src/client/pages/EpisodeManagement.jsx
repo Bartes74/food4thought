@@ -186,7 +186,7 @@ const EpisodeManagement = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6" data-testid="episodes-management">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-light-text dark:text-white">
             Zarządzanie odcinkami
@@ -310,7 +310,7 @@ const EpisodeManagement = () => {
                 Dodaj nowy odcinek
               </h2>
               
-              <form onSubmit={handleUploadEpisode} className="space-y-4">
+              <form onSubmit={handleUploadEpisode} className="space-y-4" data-testid="add-episode-form">
                 {/* Tytuł */}
                 <div>
                   <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
