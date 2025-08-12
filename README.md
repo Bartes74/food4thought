@@ -13,6 +13,7 @@ Aplikacja do zarządzania podcastami i odcinkami audio z systemem osiągnięć i
 - **Responsywny design** - aplikacja działa na wszystkich urządzeniach
 - **Ciemny/jasny motyw** - wybór preferowanego wyglądu
 - **Wielojęzyczność** - obsługa polskiego i angielskiego
+- **Automatyczne ładowanie ostatniego odcinka** - po zalogowaniu
 
 ## 🛠️ Technologie
 
@@ -81,15 +82,37 @@ npm start
 - **Administrator**: `admin@food4thought.local` / `admin`
 - **Użytkownik testowy**: `test@example.com` / `test123`
 
-## 🔧 Nowe funkcjonalności (v2.0)
+## 🔧 Nowe funkcjonalności (v2.1)
+
+### Uproszczona logika statusów odcinków
+Aplikacja używa teraz tylko tabeli `user_progress` do określania statusu odcinków:
+
+```javascript
+// Nowe pola w user_progress
+{
+  user_position: 300,        // Pozycja w sekundach
+  user_completed: 0,         // 0 = nieukończony, 1 = ukończony
+  user_last_played: '2024-01-01T00:00:00Z'  // Ostatnie słuchanie
+}
+
+// Logika statusów:
+// - Nowy: brak wpisu w user_progress
+// - W trakcie: user_position > 0 && user_completed = 0
+// - Ukończony: user_completed = 1
+```
+
+### Automatyczne ładowanie ostatniego odcinka
+- Po zalogowaniu aplikacja automatycznie ładuje ostatnio słuchany odcinek
+- Endpoint `/api/episodes/last-played` zwraca najnowszy odcinek z `user_progress`
+- Player zapamiętuje pozycję odtwarzania
 
 ### Struktura odcinków użytkownika
 Endpoint `/api/episodes/my` zwraca obiekt z trzema kategoriami:
 ```javascript
 {
-  new: [...],           // Nowe odcinki
-  inProgress: [...],    // Odcinki w trakcie słuchania
-  completed: [...]      // Ukończone odcinki
+  new: [...],           // Nowe odcinki (brak wpisu w user_progress)
+  inProgress: [...],    // Odcinki w trakcie słuchania (user_position > 0)
+  completed: [...]      // Ukończone odcinki (user_completed = 1)
 }
 ```
 
@@ -126,10 +149,13 @@ Wszystkie endpointy odcinków zawierają:
 - `GET /api/episodes/favorites` - Ulubione odcinki
 - `GET /api/episodes/my/top-rated` - Najwyżej oceniane
 - `GET /api/episodes/:id` - Szczegóły odcinka
+- `GET /api/episodes/last-played` - Ostatnio słuchany odcinek
 - `POST /api/episodes/:id/progress` - Zapisywanie postępu
 - `POST /api/episodes/:id/favorite` - Dodawanie do ulubionych
 - `DELETE /api/episodes/:id/favorite` - Usuwanie z ulubionych
 - `POST /api/episodes/:id/rating` - Ocena odcinka
+- `GET /api/episodes/:id/rating` - Pobieranie oceny użytkownika
+- `GET /api/episodes/:id/average-rating` - Średnia ocena odcinka
 - `DELETE /api/episodes/:id` - Usuwanie odcinka (admin)
 
 ### Serii
@@ -148,6 +174,9 @@ Wszystkie endpointy odcinków zawierają:
 - `POST /api/admin/users` - Tworzenie użytkowników
 - `PUT /api/admin/users/:id/role` - Zmiana roli
 - `DELETE /api/admin/users/:id` - Usuwanie użytkowników
+
+### Osiągnięcia
+- `POST /api/achievements/record-session` - Zapisywanie sesji słuchania
 
 ## 🧪 Testy
 
@@ -172,7 +201,7 @@ npm test -- --grep "Episodes"
 - `playwright/` - Konfiguracja Playwright
 
 ### Status testów
-- **Backend**: 142/142 testów przechodzi (100%) ✅
+- **Backend**: 152/152 testów przechodzi (100%) ✅
 - **E2E**: Wszystkie testy przechodzi ✅
 - **Pokrycie**: Kompletne pokrycie funkcjonalności
 
@@ -182,11 +211,27 @@ npm test -- --grep "Episodes"
 - `users` - Użytkownicy i role
 - `series` - Serii podcastów
 - `episodes` - Odcinki z metadanymi
-- `listening_sessions` - Sesje słuchania
+- `user_progress` - Postęp użytkownika (pozycja, ukończenie, ostatnie słuchanie)
+- `listening_sessions` - Sesje słuchania (dla osiągnięć)
 - `user_favorites` - Ulubione odcinki
 - `ratings` - Oceny odcinków
 - `achievements` - 19 unikalnych osiągnięć
 - `user_achievements` - Osiągnięcia użytkowników
+
+### Struktura user_progress
+```sql
+CREATE TABLE user_progress (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  episode_id INTEGER NOT NULL,
+  position INTEGER DEFAULT 0,        -- Pozycja w sekundach
+  completed INTEGER DEFAULT 0,       -- 0 = nieukończony, 1 = ukończony
+  last_played DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (episode_id) REFERENCES episodes(id) ON DELETE CASCADE,
+  UNIQUE(user_id, episode_id)
+);
+```
 
 ### Migracje
 ```bash
@@ -263,13 +308,13 @@ Użyj [GitHub Issues](https://github.com/Bartes74/food4thought/issues) do raport
 
 ## 🎯 Roadmap
 
-### v2.1 (Następna wersja)
+### v2.2 (Następna wersja)
 - [ ] System powiadomień
 - [ ] Eksport danych
 - [ ] Integracja z Spotify
 - [ ] Mobile app (React Native)
 
-### v2.2
+### v2.3
 - [ ] System komentarzy
 - [ ] Playlisty
 - [ ] Synchronizacja między urządzeniami
@@ -277,7 +322,19 @@ Użyj [GitHub Issues](https://github.com/Bartes74/food4thought/issues) do raport
 
 ## 🔧 Ostatnie naprawy
 
-### Naprawa duplikatów osiągnięć (v2.0.1)
+### Uproszczenie logiki statusów (v2.1.0)
+- **Problem**: Skomplikowana logika używająca wielu tabel do określania statusu odcinków
+- **Rozwiązanie**: Uproszczenie do używania tylko tabeli `user_progress`
+- **Rezultat**: Szybsze zapytania, prostsza logika, lepsza wydajność
+- **Pola**: `user_position`, `user_completed`, `user_last_played`
+
+### Naprawa testów (v2.0.1)
+- **Backend**: 152/152 testów przechodzi (100%)
+- **E2E**: Wszystkie testy Playwright przechodzi
+- **Dostosowano**: Testy do nowej logiki `user_progress`
+- **Dodano**: Minimalny test do `test-app-simplified.js`
+
+### Naprawa duplikatów osiągnięć (v2.0.0)
 - **Problem**: Baza danych zawierała 1928 duplikatów osiągnięć zamiast 19 unikalnych
 - **Rozwiązanie**: Usunięto duplikaty i osierocone rekordy
 - **Rezultat**: Poprawna liczba osiągnięć (19) wyświetlana w UI

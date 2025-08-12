@@ -293,6 +293,13 @@ const initDatabasePromise = initializeDatabase();
 
 // Inicjalizacja domyślnych osiągnięć
 const initializeAchievements = async (db) => {
+  // Sprawdź czy osiągnięcia już istnieją
+  const existingCount = await db.get('SELECT COUNT(*) as count FROM achievements');
+  if (existingCount.count > 0) {
+    console.log('✅ Osiągnięcia już zainicjalizowane, pomijam...');
+    return;
+  }
+
   const achievements = [
     {
       name: 'Szybki Słuchacz',

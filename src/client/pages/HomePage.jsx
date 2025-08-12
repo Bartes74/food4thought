@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import AudioPlayer from '../components/AudioPlayer'
 import Layout from '../components/Layout'
 import StarRating from '../components/StarRating'
+import axios from 'axios'
 
 const HomePage = () => {
   const { user } = useAuth()
@@ -34,17 +35,38 @@ const HomePage = () => {
   const [sortBy, setSortBy] = useState('date') // 'date', 'rating', 'title'
 
   useEffect(() => {
-    fetchData()
-    
-    // Sprawdź czy mamy odcinek do automatycznego odtworzenia
-    const playEpisodeId = localStorage.getItem('playEpisodeId');
-    if (playEpisodeId) {
-      localStorage.removeItem('playEpisodeId');
-      // Poczekaj aż dane się załadują, potem odtwórz
-      setTimeout(() => {
-        loadEpisodeDetails(playEpisodeId);
-      }, 500);
+    const initializeApp = async () => {
+      await fetchData()
+      
+      // Sprawdź czy mamy odcinek do automatycznego odtworzenia
+      const playEpisodeId = localStorage.getItem('playEpisodeId');
+      if (playEpisodeId) {
+        localStorage.removeItem('playEpisodeId');
+        // Poczekaj aż dane się załadują, potem odtwórz
+        setTimeout(() => {
+          loadEpisodeDetails(playEpisodeId);
+        }, 500);
+      } else {
+        // Jeśli nie ma odcinka do automatycznego odtworzenia, spróbuj wczytać ostatni odcinek
+        loadLastPlayedEpisode();
+      }
     }
+
+    initializeApp()
+
+    // Dodaj event listener do odświeżania listy po zmianach w playerze
+    const handleEpisodeUpdate = () => {
+      // Zamiast pełnego fetchData(), tylko odśwież oceny i ulubione
+      refreshEpisodeRatings();
+    };
+
+    window.addEventListener('episode-favorite-toggled', handleEpisodeUpdate);
+    window.addEventListener('episode-rated', handleEpisodeUpdate);
+
+    return () => {
+      window.removeEventListener('episode-favorite-toggled', handleEpisodeUpdate);
+      window.removeEventListener('episode-rated', handleEpisodeUpdate);
+    };
   }, [])
 
   // Dodaj useEffect który będzie pobierał informacje o serii
@@ -74,6 +96,69 @@ const HomePage = () => {
         return [...filtered].sort((a, b) => new Date(b.date_added) - new Date(a.date_added));
     }
   }
+
+  // Funkcja dodawania/usuwania z ulubionych
+  const toggleFavorite = async (episodeId, e) => {
+    e.stopPropagation(); // Zapobiegaj kliknięciu na odcinek
+    
+    try {
+      const episode = episodes.new?.find(e => e.id === episodeId) || 
+                     episodes.inProgress?.find(e => e.id === episodeId) || 
+                     episodes.completed?.find(e => e.id === episodeId);
+      
+      if (!episode) return;
+      
+      if (episode.is_favorite) {
+        // Usuń z ulubionych
+        const response = await axios.delete(`/api/episodes/${episodeId}/favorite`, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        const newFavoriteStatus = response.data.isFavorite;
+        
+        // Aktualizuj lokalny stan
+        setEpisodes(prev => ({
+          new: prev.new.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e),
+          inProgress: prev.inProgress.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e),
+          completed: prev.completed.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e)
+        }));
+      } else {
+        // Dodaj do ulubionych
+        const response = await axios.post(`/api/episodes/${episodeId}/favorite`, {}, {
+          headers: { Authorization: `Bearer ${user.token}` }
+        });
+        const newFavoriteStatus = response.data.isFavorite;
+        
+        // Aktualizuj lokalny stan
+        setEpisodes(prev => ({
+          new: prev.new.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e),
+          inProgress: prev.inProgress.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e),
+          completed: prev.completed.map(e => e.id === episodeId ? { ...e, is_favorite: newFavoriteStatus } : e)
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+    }
+  };
+
+  // Funkcja oceniania odcinka
+  const handleRatingChange = async (episodeId, rating, e) => {
+    if (e) e.stopPropagation(); // Zapobiegaj kliknięciu na odcinek
+    
+    try {
+      await axios.post(`/api/episodes/${episodeId}/rating`, { rating }, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      
+      // Aktualizuj lokalny stan
+      setEpisodes(prev => ({
+        new: prev.new.map(e => e.id === episodeId ? { ...e, user_rating: rating } : e),
+        inProgress: prev.inProgress.map(e => e.id === episodeId ? { ...e, user_rating: rating } : e),
+        completed: prev.completed.map(e => e.id === episodeId ? { ...e, user_rating: rating } : e)
+      }));
+    } catch (error) {
+      console.error('Error saving rating:', error);
+    }
+  };
 
   // Funkcja wyszukiwania z poprawionymi parametrami
   const handleSearch = async () => {
@@ -173,30 +258,8 @@ const HomePage = () => {
       setSeries(seriesData)
       setEpisodes(episodesData)
 
-      // Ustaw aktualny odcinek tylko jeśli nie ma jeszcze żadnego
-      if (!currentEpisode) {
-        if (episodesData.inProgress?.length > 0) {
-          loadEpisodeDetails(episodesData.inProgress[0].id)
-        } else if (episodesData.new?.length > 0) {
-          loadEpisodeDetails(episodesData.new[0].id)
-        }
-      } else {
-        // Jeśli jest już odcinek w playerze, zaktualizuj go z nowymi danymi
-        const currentEpisodeId = currentEpisode.id;
-        const updatedEpisode = episodesData.new?.find(e => e.id === currentEpisodeId) ||
-                               episodesData.inProgress?.find(e => e.id === currentEpisodeId) ||
-                               episodesData.completed?.find(e => e.id === currentEpisodeId);
-        
-        if (updatedEpisode) {
-          // Zaktualizuj currentEpisode z nowymi danymi (np. z nową oceną)
-          setCurrentEpisode(prev => ({
-            ...prev,
-            user_rating: updatedEpisode.user_rating,
-            average_rating: updatedEpisode.average_rating,
-            rating_count: updatedEpisode.rating_count
-          }));
-        }
-      }
+      // Nie ustawiaj automatycznie pierwszego odcinka - to zrobi loadLastPlayedEpisode
+      // lub domyślna logika w useEffect
     } catch (error) {
       console.error('Błąd pobierania danych:', error)
       // Nie pokazuj błędu użytkownikowi - po prostu pokaż pusty player
@@ -218,6 +281,85 @@ const HomePage = () => {
     }
   };
 
+  // Funkcja do odświeżania tylko ocen i ulubionych bez resetowania aktualnego odcinka
+  const refreshEpisodeRatings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/episodes/my', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const episodesData = await response.json()
+      
+      // Aktualizuj tylko dane odcinków, nie resetuj currentEpisode
+      setEpisodes(episodesData)
+      
+      // Jeśli jest aktualny odcinek, zaktualizuj jego dane
+      if (currentEpisode) {
+        const currentEpisodeId = currentEpisode.id;
+        const updatedEpisode = episodesData.new?.find(e => e.id === currentEpisodeId) ||
+                               episodesData.inProgress?.find(e => e.id === currentEpisodeId) ||
+                               episodesData.completed?.find(e => e.id === currentEpisodeId);
+        
+        if (updatedEpisode) {
+          // Zaktualizuj currentEpisode z nowymi danymi (np. z nową oceną)
+          setCurrentEpisode(prev => ({
+            ...prev,
+            user_rating: updatedEpisode.user_rating,
+            average_rating: updatedEpisode.average_rating,
+            rating_count: updatedEpisode.rating_count,
+            is_favorite: updatedEpisode.is_favorite
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Błąd odświeżania ocen:', error)
+    }
+  };
+
+  const loadLastPlayedEpisode = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch('/api/episodes/last-played', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (response.ok) {
+        const lastPlayedEpisode = await response.json()
+        
+        if (lastPlayedEpisode) {
+          console.log('Wczytywanie ostatniego odcinka:', lastPlayedEpisode.title)
+          
+          // Pobierz pełne szczegóły odcinka z tematami
+          await loadEpisodeDetails(lastPlayedEpisode.id)
+        } else {
+          console.log('Brak ostatniego odcinka, używam domyślnej logiki')
+          // Jeśli nie ma ostatniego odcinka, użyj domyślnej logiki
+          if (episodes.inProgress?.length > 0) {
+            loadEpisodeDetails(episodes.inProgress[0].id)
+          } else if (episodes.new?.length > 0) {
+            loadEpisodeDetails(episodes.new[0].id)
+          }
+        }
+      } else {
+        console.log('Błąd pobierania ostatniego odcinka, używam domyślnej logiki')
+        // Jeśli błąd, użyj domyślnej logiki
+        if (episodes.inProgress?.length > 0) {
+          loadEpisodeDetails(episodes.inProgress[0].id)
+        } else if (episodes.new?.length > 0) {
+          loadEpisodeDetails(episodes.new[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania ostatniego odcinka:', error)
+      // Jeśli błąd, użyj domyślnej logiki
+      if (episodes.inProgress?.length > 0) {
+        loadEpisodeDetails(episodes.inProgress[0].id)
+      } else if (episodes.new?.length > 0) {
+        loadEpisodeDetails(episodes.new[0].id)
+      }
+    }
+  }
+
   const loadEpisodeDetails = async (episodeId) => {
     try {
       const token = localStorage.getItem('token')
@@ -225,6 +367,19 @@ const HomePage = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
+      
+      // Pobierz tematy odcinka
+      try {
+        const topicsResponse = await fetch(`/api/episodes/${episodeId}/topics`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const topicsData = await topicsResponse.json()
+        data.topics = topicsData.topics || []
+      } catch (topicsError) {
+        console.log('Nie udało się wczytać tematów:', topicsError)
+        data.topics = []
+      }
+      
       setCurrentEpisode(data)
       
       // Pobierz informacje o serii dla tego odcinka
@@ -694,14 +849,14 @@ const HomePage = () => {
                             </div>
                             <div className="mt-2">
                               <StarRating
-                                rating={episode.average_rating || 0}
-                                readonly={true}
+                                rating={episode.user_rating || 0}
+                                onRatingChange={(rating, event) => handleRatingChange(episode.id, rating, event)}
                                 size="sm"
                                 showHalfStars={true}
                               />
                               {episode.rating_count > 0 && (
                                 <span className="text-xs text-light-textSecondary dark:text-gray-400 ml-2">
-                                  ({episode.rating_count} ocen)
+                                  Średnia: {episode.average_rating?.toFixed(1) || 0}/5 ({episode.rating_count} ocen)
                                 </span>
                               )}
                             </div>
@@ -710,6 +865,20 @@ const HomePage = () => {
                             <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
                               Nowy
                             </span>
+                            <button
+                              onClick={(e) => toggleFavorite(episode.id, e)}
+                              className={`p-1 rounded transition-colors ${
+                                episode.is_favorite 
+                                  ? 'text-red-500 hover:text-red-600' 
+                                  : 'text-gray-400 hover:text-red-500'
+                              }`}
+                              title={episode.is_favorite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+                            >
+                              <svg className="w-5 h-5" fill={episode.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                            </button>
                             <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                             </svg>
@@ -768,14 +937,14 @@ const HomePage = () => {
                             </div>
                             <div className="mt-2">
                               <StarRating
-                                rating={episode.average_rating || 0}
-                                readonly={true}
+                                rating={episode.user_rating || 0}
+                                onRatingChange={(rating, event) => handleRatingChange(episode.id, rating, event)}
                                 size="sm"
                                 showHalfStars={true}
                               />
                               {episode.rating_count > 0 && (
                                 <span className="text-xs text-light-textSecondary dark:text-gray-400 ml-2">
-                                  ({episode.rating_count} ocen)
+                                  Średnia: {episode.average_rating?.toFixed(1) || 0}/5 ({episode.rating_count} ocen)
                                 </span>
                               )}
                             </div>
@@ -784,6 +953,20 @@ const HomePage = () => {
                             <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded">
                               W trakcie
                             </span>
+                            <button
+                              onClick={(e) => toggleFavorite(episode.id, e)}
+                              className={`p-1 rounded transition-colors ${
+                                episode.is_favorite 
+                                  ? 'text-red-500 hover:text-red-600' 
+                                  : 'text-gray-400 hover:text-red-500'
+                              }`}
+                              title={episode.is_favorite ? 'Usuń z ulubionych' : 'Dodaj do ulubionych'}
+                            >
+                              <svg className="w-5 h-5" fill={episode.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                              </svg>
+                            </button>
                             <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                             </svg>

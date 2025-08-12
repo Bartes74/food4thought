@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import Layout from '../components/Layout.jsx';
+import StarRating from '../components/StarRating.jsx';
 import axios from 'axios';
 
 const FavoritesPage = () => {
@@ -16,6 +17,22 @@ const FavoritesPage = () => {
     if (user) {
       fetchFavorites();
     }
+
+    // Dodaj event listener do odświeżania listy po zmianach w playerze
+    const handleEpisodeUpdate = () => {
+      if (user) {
+        // Odśwież tylko dane, nie resetuj stanu
+        refreshFavoritesData();
+      }
+    };
+
+    window.addEventListener('episode-favorite-toggled', handleEpisodeUpdate);
+    window.addEventListener('episode-rated', handleEpisodeUpdate);
+
+    return () => {
+      window.removeEventListener('episode-favorite-toggled', handleEpisodeUpdate);
+      window.removeEventListener('episode-rated', handleEpisodeUpdate);
+    };
   }, [user]);
 
   const fetchFavorites = async () => {
@@ -33,7 +50,48 @@ const FavoritesPage = () => {
     }
   };
 
-  const toggleEpisode = (episodeId) => {
+  // Funkcja do odświeżania danych ulubionych bez resetowania stanu
+  const refreshFavoritesData = async () => {
+    try {
+      const response = await axios.get('/api/episodes/favorites', {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      setFavorites(response.data || []);
+    } catch (error) {
+      console.error('Error refreshing favorites:', error);
+    }
+  };
+
+  const toggleEpisode = async (episodeId) => {
+    const isExpanded = expandedEpisodes[episodeId];
+    
+    // Jeśli rozwijamy odcinek i nie ma jeszcze tematów, wczytaj je
+    if (!isExpanded) {
+      const episode = favorites.find(e => e.id === episodeId);
+      if (episode && !episode.topics) {
+        try {
+          const response = await axios.get(`/api/episodes/${episodeId}/topics`, {
+            headers: { Authorization: `Bearer ${user.token}` }
+          });
+          
+          // Zaktualizuj odcinek z tematami
+          setFavorites(prev => prev.map(e => 
+            e.id === episodeId 
+              ? { ...e, topics: response.data.topics || [] }
+              : e
+          ));
+        } catch (error) {
+          console.log('Nie udało się wczytać tematów:', error);
+          // Dodaj pustą tablicę tematów żeby nie próbować wczytywać ponownie
+          setFavorites(prev => prev.map(e => 
+            e.id === episodeId 
+              ? { ...e, topics: [] }
+              : e
+          ));
+        }
+      }
+    }
+    
     setExpandedEpisodes(prev => ({
       ...prev,
       [episodeId]: !prev[episodeId]
@@ -53,6 +111,25 @@ const FavoritesPage = () => {
       setFavorites(prev => prev.filter(episode => episode.id !== episodeId));
     } catch (error) {
       console.error('Error removing favorite:', error);
+    }
+  };
+
+  const handleRatingChange = async (episodeId, rating, e) => {
+    if (e) e.stopPropagation(); // Zapobiegaj kliknięciu na odcinek
+    
+    try {
+      await axios.post(`/api/episodes/${episodeId}/rating`, { rating }, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      
+      // Aktualizuj lokalny stan
+      setFavorites(prev => prev.map(episode => 
+        episode.id === episodeId 
+          ? { ...episode, user_rating: rating }
+          : episode
+      ));
+    } catch (error) {
+      console.error('Error saving rating:', error);
     }
   };
 
@@ -189,14 +266,27 @@ const FavoritesPage = () => {
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-light-text dark:text-white">
-                                  {episode.title}
-                                </h3>
-                                <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                  • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                                                          <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-light-text dark:text-white">
+                                {episode.title}
+                              </h3>
+                              <span className="text-sm text-light-textSecondary dark:text-gray-400">
+                                • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                              </span>
+                            </div>
+                            <div className="mt-2">
+                              <StarRating
+                                rating={episode.user_rating || 0}
+                                onRatingChange={(rating, event) => handleRatingChange(episode.id, rating, event)}
+                                size="sm"
+                                showHalfStars={true}
+                              />
+                              {episode.rating_count > 0 && (
+                                <span className="text-xs text-light-textSecondary dark:text-gray-400 ml-2">
+                                  Średnia: {episode.average_rating?.toFixed(1) || 0}/5 ({episode.rating_count} ocen)
                                 </span>
-                              </div>
+                              )}
+                            </div>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                               {getStatusBadge(episode.status)}
@@ -237,7 +327,7 @@ const FavoritesPage = () => {
                                     <div key={index} className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
                                       <div className="flex items-center gap-2 mb-1">
                                         <span className="text-xs text-primary font-medium">
-                                          [{Math.floor(topic.timestamp / 60)}:{(topic.timestamp % 60).toString().padStart(2, '0')}]
+                                          [{topic.timestamp}]
                                         </span>
                                         <h5 className="font-medium text-light-text dark:text-white">
                                           {topic.title}

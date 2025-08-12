@@ -37,5 +37,32 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Zapisz sesję słuchania
+router.post('/record-session', authenticateToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const userId = parseInt(req.user.id);
+    const { episodeId, startTime, endTime, playbackSpeed, completionRate, durationSeconds } = req.body;
+    
+    // Sprawdź czy odcinek istnieje
+    const episode = await db.get('SELECT * FROM episodes WHERE id = ?', [episodeId]);
+    if (!episode) {
+      return res.status(404).json({ error: 'Odcinek nie znaleziony' });
+    }
+    
+    // Zapisz sesję słuchania
+    await db.run(`
+      INSERT INTO listening_sessions 
+      (user_id, episode_id, start_time, end_time, playback_speed, completion_rate, duration_seconds)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [userId, episodeId, startTime, endTime, playbackSpeed, completionRate, durationSeconds]);
+    
+    res.json({ message: 'Sesja zapisana' });
+  } catch (error) {
+    console.error('Record session error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 export default router;
 

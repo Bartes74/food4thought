@@ -77,27 +77,27 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       favoritesCount: 0
     };
     
-    // Całkowity czas słuchania
+    // Całkowity czas słuchania (suma pozycji z ukończonych odcinków)
     const listeningTime = await db.get(`
-      SELECT COALESCE(SUM(duration_seconds), 0) as total_time 
-      FROM listening_sessions 
-      WHERE user_id = ? AND completion_rate >= 0.9
+      SELECT COALESCE(SUM(position), 0) as total_time 
+      FROM user_progress 
+      WHERE user_id = ? AND completed = 1
     `, [userId]);
     stats.totalListeningTime = Math.round(listeningTime.total_time / 60); // w minutach
     
     // Liczba ukończonych odcinków
     const completed = await db.get(`
       SELECT COUNT(DISTINCT episode_id) as count 
-      FROM listening_sessions 
-      WHERE user_id = ? AND completion_rate >= 0.9
+      FROM user_progress 
+      WHERE user_id = ? AND completed = 1
     `, [userId]);
     stats.completedCount = completed.count;
     
-    // Liczba odcinków w trakcie
+    // Liczba odcinków w trakcie (taka sama logika jak w /api/episodes/my)
     const inProgress = await db.get(`
       SELECT COUNT(DISTINCT episode_id) as count 
-      FROM listening_sessions 
-      WHERE user_id = ? AND completion_rate < 0.9 AND completion_rate > 0
+      FROM user_progress 
+      WHERE user_id = ? AND completed = 0 AND position > 0
     `, [userId]);
     stats.inProgressCount = inProgress.count;
     

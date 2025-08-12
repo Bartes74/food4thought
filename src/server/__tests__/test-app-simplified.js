@@ -176,7 +176,9 @@ function createTestApp() {
           series_name: 'Test Series 1',
           series_color: '#ff0000',
           series_image: 'test1.jpg',
-          user_completion_rate: 0.5
+          user_position: 300,
+          user_completed: 0,
+          user_last_played: '2024-01-01T00:00:00Z'
         }
       ],
       completed: [
@@ -187,7 +189,9 @@ function createTestApp() {
           series_name: 'Test Series 2',
           series_color: '#00ff00',
           series_image: 'test2.jpg',
-          user_completion_rate: 1.0
+          user_position: 1800,
+          user_completed: 1,
+          user_last_played: '2024-01-01T00:00:00Z'
         }
       ]
     });
@@ -696,4 +700,12 @@ function createTestApp() {
 export const app = createTestApp();
 
 export default app;
+
+// Simple test to ensure the app is properly exported
+import { test, expect } from '@jest/globals';
+
+test('test app should be properly exported', () => {
+  expect(app).toBeDefined();
+  expect(typeof app.listen).toBe('function');
+});
 

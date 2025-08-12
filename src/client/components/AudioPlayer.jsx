@@ -112,6 +112,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     if (isPlaying) {
       audioRef.current?.pause();
       recordListeningSession('pause');
+      saveProgress(); // Zapisz postęp przy pauzie
     } else {
       audioRef.current?.play();
       if (!sessionStartTime) {
@@ -147,7 +148,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     
     const currentTopic = topics.findIndex((topic, index) => {
       const nextTopic = topics[index + 1];
-      return currentTime >= topic.timestamp && (!nextTopic || currentTime < nextTopic.timestamp);
+      return currentTime >= topic.timeInSeconds && (!nextTopic || currentTime < nextTopic.timeInSeconds);
     });
     
     if (currentTopic !== -1 && currentTopic !== currentTopicIndex) {
@@ -198,15 +199,16 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
         await recordListeningSession('end');
         
         // Oznacz odcinek jako ukończony w systemie osiągnięć
-        try {
-          await axios.post('/api/achievements/complete-episode', {
-            episodeId: episode.id,
-            completionRate: 1.0, // 100% ukończony
-            playbackSpeed: playbackRate
-          });
-        } catch (error) {
-          console.error('Błąd podczas rejestrowania ukończenia odcinka dla osiągnięć:', error);
-        }
+        // TODO: Dodać endpoint do obsługi ukończenia odcinka dla osiągnięć
+        // try {
+        //   await axios.post('/api/achievements/complete-episode', {
+        //     episodeId: episode.id,
+        //     completionRate: 1.0, // 100% ukończony
+        //     playbackSpeed: playbackRate
+        //   });
+        // } catch (error) {
+        //   console.error('Błąd podczas rejestrowania ukończenia odcinka dla osiągnięć:', error);
+        // }
       } catch (error) {
         console.error('Błąd oznaczania jako ukończony:', error);
       }
@@ -225,8 +227,21 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     if (!episode?.id) return;
     
     try {
-      const response = await axios.post(`/api/episodes/${episode.id}/favorite`);
-      setIsFavorite(response.data.isFavorite);
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      if (isFavorite) {
+        // Usuń z ulubionych
+        const response = await axios.delete(`/api/episodes/${episode.id}/favorite`, { headers });
+        setIsFavorite(response.data.isFavorite);
+      } else {
+        // Dodaj do ulubionych
+        const response = await axios.post(`/api/episodes/${episode.id}/favorite`, {}, { headers });
+        setIsFavorite(response.data.isFavorite);
+      }
+      
+      // Wyślij event do odświeżenia listy odcinków
+      window.dispatchEvent(new Event('episode-favorite-toggled'));
     } catch (error) {
       console.error('Błąd zmiany ulubionych:', error);
     }
@@ -237,11 +252,13 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     if (!episode?.id) return;
     
     try {
-      await axios.post(`/api/episodes/${episode.id}/rating`, { rating });
+      const token = localStorage.getItem('token');
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      await axios.post(`/api/episodes/${episode.id}/rating`, { rating }, { headers });
       setUserRating(rating);
       
       // Odśwież dane odcinka po ocenieniu
-      const token = localStorage.getItem('token');
       const response = await fetch(`/api/episodes/${episode.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -259,6 +276,8 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
       }
       // Wywołaj globalny event do odświeżenia statystyk
       window.dispatchEvent(new Event('user-rated-episode'));
+      // Wywołaj event do odświeżenia listy odcinków
+      window.dispatchEvent(new Event('episode-rated'));
     } catch (error) {
       console.error('Błąd podczas oceniania odcinka:', error);
     }
@@ -401,7 +420,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
                   key={index}
                   onClick={() => {
                     if (audioRef.current) {
-                      audioRef.current.currentTime = topic.timestamp;
+                      audioRef.current.currentTime = topic.timeInSeconds;
                     }
                   }}
                   className={`block w-full text-left text-sm p-2 rounded ${
@@ -411,7 +430,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
                   } transition-colors`}
                 >
                   <span className="font-medium">
-                    [{Math.floor(topic.timestamp / 60)}:{(topic.timestamp % 60).toString().padStart(2, '0')}]
+                    [{topic.timestamp}]
                   </span>{' '}
                   {topic.title}
                 </button>
