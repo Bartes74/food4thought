@@ -20,6 +20,8 @@ Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym p
 - **Dostosowano testy** - zaktualizowano `test-app-simplified.js` do nowej logiki `user_progress`
 - **Dodano minimalny test** - do `test-app-simplified.js` aby rozwiązać błąd Jest
 - **Dokumentacja** - zaktualizowano README.md z nową logiką i endpointami
+- **GitHub Actions CI/CD** - zaktualizowano przestarzałe akcje `actions/upload-artifact@v3` i `codecov/codecov-action@v3` do najnowszych wersji
+- **Zależności CI/CD** - dodano `audit-ci`, `eslint`, `prettier` do devDependencies
 
 ### 📊 Techniczne szczegóły
 - **Logika statusów**:
