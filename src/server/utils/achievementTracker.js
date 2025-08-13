@@ -90,8 +90,12 @@ export const checkAndAwardAchievements = async (userId) => {
       let completed = false;
 
       switch (achievement.requirement_type) {
-        case 'high_speed_listening_time':
+        case 'high_speed_time':
           progress = stats.high_speed_listening_time || 0;
+          completed = progress >= achievement.requirement_value;
+          break;
+        case 'perfect_completion':
+          progress = stats.perfect_completions || 0;
           completed = progress >= achievement.requirement_value;
           break;
         case 'perfect_completions':
@@ -106,12 +110,20 @@ export const checkAndAwardAchievements = async (userId) => {
           progress = stats.early_bird_sessions || 0;
           completed = progress >= achievement.requirement_value;
           break;
-        case 'current_streak':
+        case 'streak_days':
           progress = stats.current_streak || 0;
           completed = progress >= achievement.requirement_value;
           break;
-        case 'daily_episodes_count':
+        case 'daily_episodes':
           progress = stats.daily_episodes_count || 0;
+          completed = progress >= achievement.requirement_value;
+          break;
+        case 'episodes_completed':
+          progress = stats.total_episodes_completed || 0;
+          completed = progress >= achievement.requirement_value;
+          break;
+        case 'total_listening_time':
+          progress = stats.total_listening_time || 0;
           completed = progress >= achievement.requirement_value;
           break;
       }
