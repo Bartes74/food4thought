@@ -1,6 +1,6 @@
 # Food 4 Thought - Aplikacja do słuchania podcastów o AI
 
-Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencji, z systemem osiągnięć, statystykami i zarządzaniem użytkownikami.
+Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencji, z systemem osiągnięć, statystykami, zarządzaniem użytkownikami i systemem powiadomień administratorów.
 
 ## 🚀 Funkcjonalności
 
@@ -11,12 +11,14 @@ Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencj
 - **Ulubione** - zapisywanie ulubionych odcinków
 - **Oceny i komentarze** - ocenianie i komentowanie odcinków
 - **Weryfikacja email** - system potwierdzania adresu email
+- **Powiadomienia administratorów** - wyświetlanie informacji od adminów z możliwością odrzucenia
 
 ### Dla administratorów:
 - **Panel administracyjny** - zarządzanie użytkownikami i treściami
 - **Statystyki systemu** - przegląd aktywności użytkowników z filtrami czasowymi
 - **Zarządzanie seriami** - dodawanie i edycja serii podcastów
 - **Zarządzanie odcinkami** - upload i edycja odcinków
+- **System powiadomień** - tworzenie i zarządzanie powiadomieniami dla użytkowników z pełnymi statystykami
 
 ## 🛠️ Technologie
 
@@ -62,6 +64,9 @@ npm run test:register:batch
 # Test zarządzania użytkownikami (user, admin, super-admin)
 npm run test:users
 
+# Test systemu powiadomień administratorów
+npm run test:notifications
+
 # Sprawdź aktywne tokeny weryfikacyjne
 npm run check:tokens
 ```
@@ -91,6 +96,7 @@ JWT_SECRET=your-jwt-secret
 - Automatyczna inicjalizacja przy pierwszym uruchomieniu
 - Wszystkie tabele i dane początkowe są tworzone automatycznie
 - System osiągnięć jest inicjalizowany z 18 predefiniowanymi osiągnięciami
+- System powiadomień administratorów z tabelami `admin_notifications` i `notification_stats`
 
 ## 📊 Struktura bazy danych
 
@@ -105,6 +111,8 @@ JWT_SECRET=your-jwt-secret
 - `ratings` - oceny odcinków
 - `comments` - komentarze
 - `user_favorites` - ulubione odcinki
+- `admin_notifications` - powiadomienia administratorów
+- `notification_stats` - statystyki powiadomień
 
 ## 🎯 System osiągnięć
 
@@ -115,6 +123,21 @@ Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
 - **Daily Activity** - aktywność dzienna
 - **Time Patterns** - wzorce czasowe (nocne/poranne słuchanie)
 - **General** - ogólne osiągnięcia
+
+## 📢 System powiadomień administratorów
+
+### Funkcjonalności:
+- **Tworzenie powiadomień** - administratorzy mogą tworzyć powiadomienia z tytułem i treścią
+- **Wyświetlanie użytkownikom** - powiadomienia pojawiają się na górze aplikacji
+- **Nawigacja** - użytkownicy mogą przechodzić między wieloma powiadomieniami
+- **Odrzucanie** - użytkownicy mogą odrzucić powiadomienie (nie pokazuj więcej)
+- **Statystyki** - pełne statystyki wyświetleń i odrzuceń dla każdego powiadomienia
+- **Zarządzanie** - aktywacja/dezaktywacja i usuwanie powiadomień
+
+### Logika wyświetlania:
+- Powiadomienia pokazują się maksymalnie 3 razy (jeśli użytkownik nie odrzuci)
+- Po odrzuceniu powiadomienie nie pojawia się więcej
+- Administratorzy widzą szczegółowe statystyki dla każdego powiadomienia
 
 ## 🔐 Bezpieczeństwo
 
@@ -136,7 +159,7 @@ Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
 ### Endpointy autoryzacji:
 - `POST /api/auth/register` - rejestracja użytkownika
 - `POST /api/auth/login` - logowanie
-- `POST /api/auth/verify-email` - weryfikacja email
+- `GET /api/auth/verify-email` - weryfikacja email
 
 ### Endpointy treści:
 - `GET /api/series` - lista serii
@@ -148,10 +171,20 @@ Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
 - `PUT /api/users/profile` - aktualizacja profilu
 - `GET /api/achievements` - osiągnięcia użytkownika
 
+### Endpointy powiadomień:
+- `GET /api/notifications` - powiadomienia użytkownika
+- `POST /api/notifications/:id/view` - rejestrowanie wyświetlenia
+- `POST /api/notifications/:id/dismiss` - odrzucanie powiadomienia
+
 ### Endpointy administratora:
 - `GET /api/users` - lista wszystkich użytkowników
 - `DELETE /api/users/:id` - usuwanie użytkownika
 - `GET /api/admin/stats` - statystyki systemu z filtrami czasowymi
+- `GET /api/notifications/admin` - lista powiadomień (admin)
+- `POST /api/notifications/admin` - tworzenie powiadomienia (admin)
+- `PUT /api/notifications/admin/:id` - edycja powiadomienia (admin)
+- `DELETE /api/notifications/admin/:id` - usuwanie powiadomienia (admin)
+- `GET /api/notifications/admin/:id/stats` - statystyki powiadomienia (admin)
 
 ## 🤝 Wkład w projekt
 

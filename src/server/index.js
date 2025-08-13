@@ -12,6 +12,7 @@ import episodesRoutes from './routes/episodes.js';
 import usersRoutes from './routes/users.js';
 import adminStatsRouter from './routes/adminStats.js';
 import achievementsRoutes from './routes/achievements.js';
+import notificationsRouter from './routes/notifications.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use('/api/users', apiLimiter, usersRoutes);
 app.use('/api/admin-stats', apiLimiter, adminStatsRouter);
 app.use('/api/admin', apiLimiter, adminStatsRouter); // Dodane dla kompatybilności z frontendem
 app.use('/api/achievements', apiLimiter, achievementsRoutes);
+app.use('/api/notifications', apiLimiter, notificationsRouter);
 
 // Podstawowa trasa
 app.get('/api/health', (req, res) => {

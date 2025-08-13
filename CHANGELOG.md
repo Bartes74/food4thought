@@ -2,6 +2,43 @@
 
 Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym pliku.
 
+## [2.3.0] - 2025-01-12
+
+### ✨ Nowe funkcjonalności
+- **System powiadomień administratorów** - kompletny system komunikacji z użytkownikami
+  - Tworzenie i zarządzanie powiadomieniami przez administratorów
+  - Wyświetlanie powiadomień użytkownikom w bannerze na górze aplikacji
+  - Nawigacja między wieloma powiadomieniami
+  - Możliwość odrzucenia powiadomienia (nie pokazuj więcej)
+  - Pełne statystyki wyświetleń i odrzuceń dla każdego powiadomienia
+  - Panel administracyjny do zarządzania powiadomieniami
+
+### 🗄️ Baza danych
+- **Nowe tabele** - `admin_notifications` i `notification_stats`
+- **Migracja do wersji 3** - automatyczne tworzenie tabel powiadomień
+- **Statystyki powiadomień** - śledzenie wyświetleń, odrzuceń i aktywności użytkowników
+
+### 🎨 Frontend
+- **NotificationBanner** - komponent wyświetlający powiadomienia użytkownikom
+- **NotificationManagement** - strona zarządzania powiadomieniami dla administratorów
+- **Integracja z Layout** - powiadomienia wyświetlane na górze każdej strony
+- **Modal ze statystykami** - szczegółowe statystyki dla każdego powiadomienia
+
+### 🔧 Backend
+- **API powiadomień** - kompletne endpointy dla zarządzania powiadomieniami
+- **Autoryzacja** - ochrona endpointów administratora
+- **Statystyki w czasie rzeczywistym** - liczenie wyświetleń i odrzuceń
+
+### 🧪 Testy
+- **test-notifications.js** - kompletny test systemu powiadomień
+- **Automatyczne czyszczenie** - usuwanie danych testowych po testach
+- **Weryfikacja wszystkich funkcjonalności** - tworzenie, wyświetlanie, odrzucanie, statystyki
+
+### 📚 Dokumentacja
+- **README.md** - zaktualizowany o system powiadomień
+- **Endpointy API** - dokumentacja wszystkich nowych endpointów
+- **Przykłady użycia** - instrukcje dla administratorów
+
 ## [2.2.1] - 2025-01-12
 
 ### 🔧 Naprawione
@@ -19,84 +56,94 @@ Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym p
 
 ## [2.2.0] - 2025-01-12
 
-### 🎉 Dodane
-- **System weryfikacji email** - potwierdzanie adresów email przy rejestracji
-- **UI-based email verification** - wyświetlanie linków weryfikacyjnych w interfejsie
-- **Skrypty testowe** - automatyczne testowanie rejestracji i zarządzania użytkownikami
-- **Automatyczne czyszczenie** - skrypty automatycznie usuwają dane testowe
-- **System ról użytkowników** - user, admin, super_admin z odpowiednimi uprawnieniami
+### ✨ Nowe funkcjonalności
+- **System weryfikacji email** - potwierdzanie adresów email użytkowników
+- **UI-based verification** - wyświetlanie linku weryfikacyjnego w aplikacji (dla testów)
+- **System ról użytkowników** - user, admin, super_admin z różnymi uprawnieniami
+- **Automatyczne czyszczenie** - skrypty testowe automatycznie usuwają dane testowe
+
+### 🛠️ Narzędzia deweloperskie
+- **test-registration.js** - interaktywny test rejestracji i weryfikacji
+- **test-registration-batch.js** - automatyczne tworzenie wielu użytkowników testowych
+- **check-verification-tokens.js** - sprawdzanie aktywnych tokenów weryfikacyjnych
+- **test-user-management.js** - test zarządzania użytkownikami z różnymi rolami
 
 ### 🔧 Naprawione
-- **Nodemailer integration** - naprawiony błąd `createTransporter is not a function`
-- **Email fallback system** - aplikacja używa mock email gdy SMTP nie jest skonfigurowany
-- **Testowe użytkowniki** - wyczyszczone wszystkie testowe dane z bazy
-- **Struktura bazy danych** - poprawione kolumny w tabeli `user_stats`
-
-### 🧪 Testy
-- **Nowe skrypty testowe**:
-  - `npm run test:register` - interaktywny test rejestracji
-  - `npm run test:register:batch` - test rejestracji wielu użytkowników
-  - `npm run test:users` - test zarządzania użytkownikami z automatycznym czyszczeniem
-  - `npm run check:tokens` - sprawdzanie aktywnych tokenów weryfikacyjnych
+- **Nodemailer import** - naprawiony błąd `nodemailer.createTransporter is not a function`
+- **Email fallback** - system działa bez konfiguracji SMTP (używa mock email)
+- **Struktura bazy danych** - poprawione kolumny i indeksy
 
 ### 📚 Dokumentacja
-- **Zaktualizowany README.md** - kompletna dokumentacja funkcjonalności
-- **Dodana sekcja "Znane problemy"** - dokumentacja znanych ograniczeń
-- **Instrukcje konfiguracji** - szczegółowe kroki instalacji i uruchomienia
+- **EMAIL_SETUP.md** - szczegółowe instrukcje konfiguracji email
+- **EMAIL_VERIFICATION_UI.md** - opis systemu weryfikacji UI
+- **QUICK_TEST_GUIDE.md** - szybki przewodnik testowania
+- **TESTING_REGISTRATION.md** - kompletny przewodnik testowania rejestracji
+- **TEST_RESULTS.md** - wyniki testów aplikacji
 
-### ⚠️ Znane problemy
-- **Usuwanie użytkowników przez API** - nie działa dla użytkowników z danymi (błąd FOREIGN KEY)
-  - **Rozwiązanie**: Skrypty testowe automatycznie czyszczą dane przez SQL
-- **Email verification** - używa fallback (mock) zamiast rzeczywistego SMTP
-  - **Rozwiązanie**: Ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS
+### 🗄️ Baza danych
+- **Tabela email_verifications** - przechowywanie tokenów weryfikacyjnych
+- **Migracja do wersji 2** - automatyczne dodawanie nowych tabel
+- **Cascade deletes** - automatyczne usuwanie powiązanych danych
+
+### 🧪 Testy
+- **Automatyczne testy** - wszystkie funkcjonalności przetestowane
+- **Czyszczenie danych** - skrypty automatycznie usuwają dane testowe
+- **Testy integracyjne** - sprawdzanie całego flow rejestracji i weryfikacji
 
 ## [2.1.0] - 2025-01-11
 
-### 🔧 Naprawione
-- **Uproszczenie logiki statusów** - użycie tylko tabeli `user_progress`
-- **Automatyczne ładowanie ostatniego odcinka** - po zalogowaniu
-- **System ulubionych** - z wyszukiwaniem i grupowaniem
-- **Cascade Delete** - zachowanie integralności bazy danych
+### ✨ Nowe funkcjonalności
+- **System osiągnięć** - 18 różnych osiągnięć do zdobycia
+- **Statystyki użytkowników** - śledzenie postępów i czasu słuchania
+- **Panel administracyjny** - zarządzanie użytkownikami i treściami
+- **System ocen i komentarzy** - ocenianie i komentowanie odcinków
 
-### 📊 Baza danych
-- **Naprawa duplikatów osiągnięć** - z 1928 do 19 unikalnych
-- **Nowa struktura user_progress** - uproszczone pola i logika
-- **Informacje o serii** - dodane do wszystkich endpointów odcinków
+### 🎯 Osiągnięcia
+- **Streaks** - słuchanie przez kolejne dni
+- **Precision** - dokładne ukończenie odcinków
+- **Speed** - słuchanie z wysoką prędkością
+- **Daily Activity** - aktywność dzienna
+- **Time Patterns** - wzorce czasowe (nocne/poranne słuchanie)
+- **General** - ogólne osiągnięcia
+
+### 🗄️ Baza danych
+- **Tabela achievements** - definicje osiągnięć
+- **Tabela user_achievements** - osiągnięcia użytkowników
+- **Tabela user_stats** - statystyki użytkowników
+- **Tabela ratings** - oceny odcinków
+- **Tabela comments** - komentarze
 
 ## [2.0.0] - 2025-01-10
 
-### 🎉 Dodane
-- **System osiągnięć** - 19 unikalnych odznak
-- **Panel administratora** - zarządzanie użytkownikami i statystykami
-- **Responsywny design** - obsługa wszystkich urządzeń
-- **Ciemny/jasny motyw** - wybór preferowanego wyglądu
-- **Wielojęzyczność** - polski i angielski
+### ✨ Nowe funkcjonalności
+- **Autentykacja JWT** - bezpieczne logowanie i sesje
+- **Zarządzanie użytkownikami** - rejestracja, logowanie, profile
+- **System ulubionych** - zapisywanie ulubionych odcinków
+- **Odtwarzacz audio** - z kontrolą prędkości i postępu
+- **Responsywny design** - obsługa urządzeń mobilnych
 
-### 🧪 Testy
-- **Backend**: 152/152 testów przechodzi (100%)
-- **E2E**: Wszystkie testy Playwright przechodzi
-- **Pokrycie**: Kompletne pokrycie funkcjonalności
+### 🎨 UI/UX
+- **Dark/Light mode** - przełączanie między motywami
+- **Tailwind CSS** - nowoczesny design system
+- **React Router** - nawigacja między stronami
+- **Context API** - zarządzanie stanem aplikacji
+
+### 🗄️ Baza danych
+- **SQLite** - lekka baza danych
+- **Tabela users** - użytkownicy systemu
+- **Tabela series** - serie podcastów
+- **Tabela episodes** - odcinki podcastów
+- **Tabela user_progress** - postęp użytkowników
+- **Tabela user_favorites** - ulubione odcinki
 
 ## [1.0.0] - 2025-01-09
 
 ### 🎉 Pierwsza wersja
-- **Zarządzanie seriami** - dodawanie, edycja i usuwanie serii podcastów
-- **Zarządzanie odcinkami** - upload i edycja odcinków z metadanymi
-- **System ulubionych** - dodawanie odcinków do ulubionych
-- **Statystyki użytkownika** - śledzenie postępów i historii słuchania
-- **Autentykacja JWT** - bezpieczne logowanie i rejestracja
+- **Podstawowa funkcjonalność** - słuchanie podcastów
+- **Upload odcinków** - dodawanie nowych treści
+- **Zarządzanie seriami** - organizacja podcastów
+- **Podstawowy UI** - interfejs użytkownika
 
 ---
 
-## Format
-
-Ten plik używa [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-i projekt jest zgodny z [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-### Typy zmian:
-- `🎉 Dodane` - nowe funkcjonalności
-- `🔧 Naprawione` - poprawki błędów
-- `🧪 Testy` - zmiany w testach
-- `📚 Dokumentacja` - aktualizacje dokumentacji
-- `⚠️ Znane problemy` - dokumentacja znanych ograniczeń
-- `📊 Baza danych` - zmiany w strukturze bazy danych
+**Format**: Ten plik jest zgodny z [Keep a Changelog](https://keepachangelog.com/pl/1.0.0/).

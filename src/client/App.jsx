@@ -16,6 +16,7 @@ import UserProfile from './pages/UserProfile'
 import FavoritesPage from './pages/FavoritesPage'
 import UserManagement from './pages/UserManagement'
 import AchievementsPage from './pages/AchievementsPage'
+import NotificationManagement from './pages/NotificationManagement'
 
 function App() {
   return (
@@ -97,6 +98,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AchievementsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/notifications"
+                element={
+                  <ProtectedRoute>
+                    <NotificationManagement />
                   </ProtectedRoute>
                 }
               />

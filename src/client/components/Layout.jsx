@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import LanguageSelector from './LanguageSelector';
 import ThemeToggle from './ThemeToggle';
+import NotificationBanner from './NotificationBanner.jsx';
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
@@ -21,6 +22,9 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg transition-colors duration-300 flex flex-col">
+      {/* Banner powiadomień */}
+      <NotificationBanner />
+      
       {/* Header - zawsze w kolorze #006575 */}
       <header className="bg-primary border-b border-primary-dark p-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">

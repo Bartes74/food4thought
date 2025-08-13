@@ -67,7 +67,8 @@
     "test:register": "node test-registration.js",
     "test:register:batch": "node test-registration-batch.js",
     "check:tokens": "node check-verification-tokens.js",
-    "test:users": "node test-user-management.js"
+    "test:users": "node test-user-management.js",
+    "test:notifications": "node test-notifications.js"
   },
   "keywords": [],
   "author": "",

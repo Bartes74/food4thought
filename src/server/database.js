@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
  */
 async function initDatabase(db) {
   // Database version for migrations
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   
   try {
     // Sprawdź wersję bazy danych
@@ -66,6 +66,43 @@ async function initDatabase(db) {
         )
       `);
       console.log('✅ Dodano tabelę email_verifications');
+    }
+
+    // Migracja do wersji 3 - dodanie systemu powiadomień administratorów
+    if (currentVersion < 3) {
+      // Tabela powiadomień administratorów
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS admin_notifications (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          created_by INTEGER NOT NULL,
+          is_active BOOLEAN DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Tabela statystyk powiadomień użytkowników
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS notification_stats (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          notification_id INTEGER NOT NULL,
+          user_id INTEGER NOT NULL,
+          views_count INTEGER DEFAULT 0,
+          dismissed BOOLEAN DEFAULT 0,
+          dismissed_at DATETIME,
+          first_viewed_at DATETIME,
+          last_viewed_at DATETIME,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (notification_id) REFERENCES admin_notifications(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE(notification_id, user_id)
+        )
+      `);
+
+      console.log('✅ Dodano system powiadomień administratorów');
     }
 
     // Tabela serii
