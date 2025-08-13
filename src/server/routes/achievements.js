@@ -15,8 +15,15 @@ router.get('/', authenticateToken, async (req, res) => {
     
     // Pobierz postęp użytkownika dla każdego osiągnięcia
     const userProgress = await db.all(`
-      SELECT achievement_id, progress_value, completed
+      SELECT achievement_id, progress_value, completed, earned_at
       FROM user_achievements 
+      WHERE user_id = ?
+    `, [userId]);
+    
+    // Pobierz statystyki użytkownika
+    const userStats = await db.get(`
+      SELECT total_listening_time, total_episodes_completed, current_streak, longest_streak
+      FROM user_stats 
       WHERE user_id = ?
     `, [userId]);
     
@@ -26,11 +33,20 @@ router.get('/', authenticateToken, async (req, res) => {
       return {
         ...achievement,
         progress_value: progress ? progress.progress_value : 0,
-        completed: progress ? progress.completed : 0
+        completed: progress ? progress.completed : 0,
+        earned_at: progress ? progress.earned_at : null
       };
     });
     
-    res.json(achievementsWithProgress);
+    res.json({
+      achievements: achievementsWithProgress,
+      stats: userStats || {
+        total_listening_time: 0,
+        total_episodes_completed: 0,
+        current_streak: 0,
+        longest_streak: 0
+      }
+    });
   } catch (error) {
     console.error('Get achievements error:', error);
     res.status(500).json({ error: 'Błąd serwera' });

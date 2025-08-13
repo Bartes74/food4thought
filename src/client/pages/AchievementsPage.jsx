@@ -64,10 +64,15 @@ const AchievementsPage = () => {
   const getCategoryName = (category) => {
     const names = {
       'speed': 'Prędkość',
+      'playback_speed': 'Prędkość odtwarzania',
       'precision': 'Dokładność',
       'patterns': 'Wzorce czasowe',
+      'time_patterns': 'Wzorce czasowe',
       'streak': 'Serie',
-      'daily': 'Codzienność'
+      'streaks': 'Serie',
+      'daily': 'Codzienność',
+      'daily_activity': 'Aktywność dzienna',
+      'general': 'Ogólne'
     };
     return names[category] || category;
   };
@@ -75,10 +80,15 @@ const AchievementsPage = () => {
   const getCategoryIcon = (category) => {
     const icons = {
       'speed': '⚡',
+      'playback_speed': '⚡',
       'precision': '🎯',
       'patterns': '🕐',
+      'time_patterns': '🕐',
       'streak': '🔥',
-      'daily': '📅'
+      'streaks': '🔥',
+      'daily': '📅',
+      'daily_activity': '📅',
+      'general': '🏆'
     };
     return icons[category] || '🏆';
   };
