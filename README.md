@@ -14,7 +14,7 @@ Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencj
 
 ### Dla administratorów:
 - **Panel administracyjny** - zarządzanie użytkownikami i treściami
-- **Statystyki systemu** - przegląd aktywności użytkowników
+- **Statystyki systemu** - przegląd aktywności użytkowników z filtrami czasowymi
 - **Zarządzanie seriami** - dodawanie i edycja serii podcastów
 - **Zarządzanie odcinkami** - upload i edycja odcinków
 
@@ -151,7 +151,7 @@ Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
 ### Endpointy administratora:
 - `GET /api/users` - lista wszystkich użytkowników
 - `DELETE /api/users/:id` - usuwanie użytkownika
-- `GET /api/admin/stats` - statystyki systemu
+- `GET /api/admin/stats` - statystyki systemu z filtrami czasowymi
 
 ## 🤝 Wkład w projekt
 

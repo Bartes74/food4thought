@@ -2,6 +2,21 @@
 
 Wszystkie istotne zmiany w projekcie Food 4 Thought będą dokumentowane w tym pliku.
 
+## [2.2.1] - 2025-01-12
+
+### 🔧 Naprawione
+- **Statystyki administratora** - naprawiony endpoint `/api/admin/stats` zwracający błąd "Nie znaleziono strony"
+- **Routing API** - dodano routing dla `/api/admin` żeby był kompatybilny z frontendem
+- **Struktura danych** - endpoint zwraca pełne statystyki z sekcjami users, episodes, series, technical
+- **Kompatybilność** - frontend może teraz poprawnie wyświetlać statystyki administratora
+
+### 📊 Statystyki administratora
+- **Sekcja users** - total, active, new, retention
+- **Sekcja episodes** - total, averageRating, completionRate, averageCompletionTime
+- **Sekcja series** - total, active, averageCompletion
+- **Sekcja technical** - languages, playbackSpeeds, hourlyActivity
+- **Filtry czasowe** - today, week, month, all
+
 ## [2.2.0] - 2025-01-12
 
 ### 🎉 Dodane

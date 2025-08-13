@@ -44,6 +44,7 @@ app.use('/api/series', apiLimiter, seriesRoutes);
 app.use('/api/episodes', apiLimiter, episodesRoutes);
 app.use('/api/users', apiLimiter, usersRoutes);
 app.use('/api/admin-stats', apiLimiter, adminStatsRouter);
+app.use('/api/admin', apiLimiter, adminStatsRouter); // Dodane dla kompatybilności z frontendem
 app.use('/api/achievements', apiLimiter, achievementsRoutes);
 
 // Podstawowa trasa
