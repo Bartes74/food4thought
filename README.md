@@ -1,211 +1,272 @@
-# Food 4 Thought - Aplikacja do słuchania podcastów o AI
+# Food 4 Thought - Aplikacja do słuchania podcastów
 
-Aplikacja webowa do słuchania i zarządzania podcastami o sztucznej inteligencji, z systemem osiągnięć, statystykami, zarządzaniem użytkownikami i systemem powiadomień administratorów.
+Aplikacja webowa do słuchania i zarządzania podcastami z zaawansowanym systemem osiągnięć, statystyk i personalizacji.
 
 ## 🚀 Funkcjonalności
 
-### Dla użytkowników:
-- **Słuchanie podcastów** - odtwarzacz audio z kontrolą prędkości
-- **System osiągnięć** - 18 różnych osiągnięć do zdobycia
-- **Statystyki osobiste** - śledzenie postępów i czasu słuchania
-- **Ulubione** - zapisywanie ulubionych odcinków
-- **Oceny i komentarze** - ocenianie i komentowanie odcinków
-- **Weryfikacja email** - system potwierdzania adresu email
-- **Powiadomienia administratorów** - wyświetlanie informacji od adminów z możliwością odrzucenia
+### 🎧 Odtwarzanie audio
+- **Odtwarzacz audio** z kontrolami (play/pause, przewijanie, prędkość)
+- **Automatyczne zapisywanie postępu** co 5 sekund
+- **Wznawianie od miejsca ostatniego odtwarzania**
+- **Obsługa różnych prędkości odtwarzania** (0.8x, 1x, 1.25x, 1.5x, 2x)
+- **Tematy odcinków** z automatycznym przełączaniem
 
-### Dla administratorów:
-- **Panel administracyjny** - zarządzanie użytkownikami i treściami
-- **Statystyki systemu** - przegląd aktywności użytkowników z filtrami czasowymi
-- **Zarządzanie seriami** - dodawanie i edycja serii podcastów
-- **Zarządzanie odcinkami** - upload i edycja odcinków
-- **System powiadomień** - tworzenie i zarządzanie powiadomieniami dla użytkowników z pełnymi statystykami
+### ❤️ System ulubionych
+- **Dodawanie/usuwanie odcinków z ulubionych**
+- **Strona ulubionych** z wyszukiwaniem i grupowaniem według serii
+- **Szybki dostęp** do ulubionych odcinków
+- **Filtrowanie i sortowanie** ulubionych
+
+### 📊 Statystyki użytkownika
+- **Całkowity czas słuchania** w formacie "Dni: 0, 00:03:39"
+- **Liczba ukończonych odcinków**
+- **Odcinki w trakcie słuchania**
+- **Liczba ulubionych odcinków**
+- **Statystyki według serii** z paskami postępu
+- **Lista ukończonych odcinków** z datami i czasem trwania
+- **Szczegółowe metryki** aktywności
+
+### 🏆 System osiągnięć
+- **30 osiągnięć** w 10 kategoriach (po 3 w każdej)
+- **Kreatywne nazwy** z emoji i motywującymi opisami
+- **Szczegółowe informacje o postępie** z procentami
+- **Kategorie osiągnięć**:
+  - ⚡ **Prędkość** - słuchanie z wysoką prędkością
+  - 🚀 **Prędkość odtwarzania** - mistrzostwo w szybkim odtwarzaniu
+  - 🎯 **Dokładność** - precyzja w słuchaniu
+  - 🕐 **Wzorce czasowe** - nawyki słuchania
+  - 🌙 **Wzorce czasowe** - słuchanie o różnych porach
+  - 🔥 **Serie** - konsekwentne serie słuchania
+  - 💪 **Wytrwałość** - regularność i wytrwałość
+  - 📅 **Codzienność** - codzienna aktywność
+  - 🏃 **Aktywność dzienna** - intensywna aktywność
+  - 🏆 **Ogólne** - kamienie milowe
+
+### 🎨 Personalizacja
+- **Tryb ciemny/jasny** z automatycznym przełączaniem
+- **Wybór języka** (polski/angielski)
+- **Kolorowe serie** z indywidualnymi kolorami
+- **Responsywny design** dla wszystkich urządzeń
+
+### 👤 Zarządzanie użytkownikami
+- **Rejestracja i logowanie** z weryfikacją email
+- **Profile użytkowników** z preferencjami
+- **System ról** (użytkownik, admin, super_admin)
+- **Zarządzanie użytkownikami** przez administratorów
+
+### 📱 Panel administratora
+- **Statystyki systemu** z wykresami
+- **Zarządzanie seriami** i odcinkami
+- **Zarządzanie użytkownikami**
+- **System powiadomień**
+- **Monitorowanie aktywności**
 
 ## 🛠️ Technologie
 
-- **Frontend**: React.js, Vite, Tailwind CSS
-- **Backend**: Node.js, Express.js
-- **Baza danych**: SQLite
-- **Autentykacja**: JWT (JSON Web Tokens)
-- **Email**: Nodemailer (z fallback na mock)
-- **Testy**: Playwright (E2E), Node.js scripts
+### Backend
+- **Node.js** z Express.js
+- **SQLite** jako baza danych
+- **JWT** do autoryzacji
+- **bcrypt** do hashowania haseł
+- **Nodemailer** do wysyłania emaili
+
+### Frontend
+- **React 18** z hooks
+- **Vite** jako bundler
+- **Tailwind CSS** do stylowania
+- **Axios** do komunikacji z API
+- **React Router** do nawigacji
+
+### Narzędzia deweloperskie
+- **ESLint** do lintingu
+- **Prettier** do formatowania kodu
+- **Playwright** do testów E2E
+- **Jest** do testów jednostkowych
 
 ## 📦 Instalacja
 
-1. **Klonuj repozytorium:**
+### Wymagania
+- Node.js 18+
+- npm lub yarn
+
+### Kroki instalacji
+
+1. **Klonowanie repozytorium**
 ```bash
 git clone <repository-url>
 cd food4thought
 ```
 
-2. **Zainstaluj zależności:**
+2. **Instalacja zależności**
 ```bash
 npm install
 ```
 
-3. **Uruchom aplikację:**
+3. **Konfiguracja środowiska**
 ```bash
-# Uruchom serwer (port 3001)
-npm start
-
-# W nowym terminalu uruchom klienta (port 3000)
-npm run client
+cp .env.example .env
+# Edytuj .env i ustaw wymagane zmienne
 ```
 
-## 🧪 Testy
-
-### Skrypty testowe:
+4. **Inicjalizacja bazy danych**
 ```bash
-# Test rejestracji użytkowników (interaktywny)
-npm run test:register
-
-# Test rejestracji użytkowników (batch)
-npm run test:register:batch
-
-# Test zarządzania użytkownikami (user, admin, super-admin)
-npm run test:users
-
-# Test systemu powiadomień administratorów
-npm run test:notifications
-
-# Sprawdź aktywne tokeny weryfikacyjne
-npm run check:tokens
+npm run db:init
 ```
 
-### Testy E2E:
+5. **Uruchomienie aplikacji**
 ```bash
-# Uruchom testy Playwright
-npm run test:e2e
+# Uruchom serwer i klienta jednocześnie
+npm run dev
 
-# Uruchom testy z UI
-npm run test:e2e:ui
+# Lub osobno:
+npm start          # Serwer na porcie 3001
+npm run client     # Klient na porcie 3000
 ```
 
-## 🔧 Konfiguracja
+## 🗄️ Struktura bazy danych
 
-### Zmienne środowiskowe:
-```env
-# Email (opcjonalne - aplikacja używa fallback)
-EMAIL_USER=your-email@domain.com
-EMAIL_PASS=your-password
-
-# JWT Secret (automatycznie generowany)
-JWT_SECRET=your-jwt-secret
-```
-
-### Baza danych:
-- Automatyczna inicjalizacja przy pierwszym uruchomieniu
-- Wszystkie tabele i dane początkowe są tworzone automatycznie
-- System osiągnięć jest inicjalizowany z 18 predefiniowanymi osiągnięciami
-- System powiadomień administratorów z tabelami `admin_notifications` i `notification_stats`
-
-## 📊 Struktura bazy danych
-
-### Główne tabele:
-- `users` - użytkownicy systemu
-- `series` - serie podcastów
-- `episodes` - odcinki podcastów
-- `user_progress` - postęp użytkowników
-- `user_stats` - statystyki użytkowników
-- `achievements` - system osiągnięć
-- `user_achievements` - osiągnięcia użytkowników
-- `ratings` - oceny odcinków
-- `comments` - komentarze
-- `user_favorites` - ulubione odcinki
-- `admin_notifications` - powiadomienia administratorów
-- `notification_stats` - statystyki powiadomień
+### Główne tabele
+- **users** - dane użytkowników
+- **series** - serie podcastów
+- **episodes** - odcinki podcastów
+- **user_progress** - postęp użytkowników
+- **user_favorites** - ulubione odcinki
+- **user_stats** - statystyki użytkowników
+- **listening_sessions** - sesje słuchania
+- **achievements** - osiągnięcia
+- **user_achievements** - postęp w osiągnięciach
 
 ## 🎯 System osiągnięć
 
-Aplikacja zawiera 18 różnych osiągnięć w kategoriach:
-- **Streaks** - słuchanie przez kolejne dni
-- **Precision** - dokładne ukończenie odcinków
-- **Speed** - słuchanie z wysoką prędkością
-- **Daily Activity** - aktywność dzienna
-- **Time Patterns** - wzorce czasowe (nocne/poranne słuchanie)
-- **General** - ogólne osiągnięcia
+### Przykładowe osiągnięcia
+- 🏆 **Ekspert** - Ukończ 100 odcinków (500 pkt)
+- ⚡ **Prędkość Światła** - Słuchaj przez 5h z prędkością 2x (50 pkt)
+- 🔥 **Żelazna Wola** - Słuchaj przez 30 dni z rzędu (500 pkt)
+- 🎯 **Mistrz Precyzji** - Ukończ 10 odcinków z 95%+ dokładnością (100 pkt)
+- 🌙 **Nocny Marynarz** - Słuchaj 5 razy między 22:00 a 6:00 (30 pkt)
 
-## 📢 System powiadomień administratorów
+### Mechanika
+- **Automatyczne śledzenie** postępu podczas słuchania
+- **Real-time aktualizacje** statystyk i osiągnięć
+- **Szczegółowe informacje** o tym, co trzeba zrobić
+- **Punkty i ranking** dla motywacji
 
-### Funkcjonalności:
-- **Tworzenie powiadomień** - administratorzy mogą tworzyć powiadomienia z tytułem i treścią
-- **Wyświetlanie użytkownikom** - powiadomienia pojawiają się na górze aplikacji
-- **Nawigacja** - użytkownicy mogą przechodzić między wieloma powiadomieniami
-- **Odrzucanie** - użytkownicy mogą odrzucić powiadomienie (nie pokazuj więcej)
-- **Statystyki** - pełne statystyki wyświetleń i odrzuceń dla każdego powiadomienia
-- **Zarządzanie** - aktywacja/dezaktywacja i usuwanie powiadomień
+## 📊 Statystyki
 
-### Logika wyświetlania:
-- Powiadomienia pokazują się maksymalnie 3 razy (jeśli użytkownik nie odrzuci)
-- Po odrzuceniu powiadomienie nie pojawia się więcej
-- Administratorzy widzą szczegółowe statystyki dla każdego powiadomienia
+### Metryki śledzone
+- **Czas słuchania** w sekundach z formatowaniem
+- **Ukończone odcinki** z completion_rate >= 0.9
+- **Serie słuchania** (dni z rzędu)
+- **Wzorce czasowe** (nocne, poranne sesje)
+- **Prędkość odtwarzania** (wysokie prędkości)
+- **Dokładność słuchania** (perfect completions)
 
-## 🔐 Bezpieczeństwo
+### Wyświetlanie
+- **Format czasu**: "Dni: 0, 00:03:39"
+- **Paski postępu** dla serii
+- **Kolorowe wskaźniki** dla różnych metryk
+- **Lista ukończonych odcinków** z datami
 
-- **Autentykacja JWT** - bezpieczne tokeny sesji
-- **Weryfikacja email** - potwierdzanie adresów email
-- **Role użytkowników** - user, admin, super_admin
-- **Ochrona endpointów** - middleware autoryzacji
-- **Walidacja danych** - sprawdzanie poprawności inputów
+## 🔧 API Endpoints
 
-## 🐛 Znane problemy
+### Autoryzacja
+- `POST /api/auth/login` - Logowanie
+- `POST /api/auth/register` - Rejestracja
+- `GET /api/auth/me` - Sprawdzenie sesji
+- `GET /api/auth/verify-email` - Weryfikacja email
 
-- **Usuwanie użytkowników przez API** - nie działa dla użytkowników z danymi (błąd FOREIGN KEY)
-  - **Rozwiązanie**: Skrypty testowe automatycznie czyszczą dane przez SQL
-- **Email verification** - używa fallback (mock) zamiast rzeczywistego SMTP
-  - **Rozwiązanie**: Ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS
+### Odcinki
+- `GET /api/episodes/my` - Odcinki użytkownika
+- `GET /api/episodes/favorites` - Ulubione odcinki
+- `POST /api/episodes/:id/progress` - Zapisywanie postępu
+- `POST /api/episodes/:id/favorite` - Dodawanie do ulubionych
+- `DELETE /api/episodes/:id/favorite` - Usuwanie z ulubionych
 
-## 📝 Dokumentacja API
+### Statystyki
+- `GET /api/users/:id/stats` - Statystyki użytkownika
+- `GET /api/users/series-stats` - Statystyki według serii
+- `POST /api/achievements/record-session` - Rejestrowanie sesji
 
-### Endpointy autoryzacji:
-- `POST /api/auth/register` - rejestracja użytkownika
-- `POST /api/auth/login` - logowanie
-- `GET /api/auth/verify-email` - weryfikacja email
+### Osiągnięcia
+- `GET /api/achievements` - Lista osiągnięć z postępem
+- `POST /api/achievements/recalculate-stats` - Przeliczanie statystyk (admin)
 
-### Endpointy treści:
-- `GET /api/series` - lista serii
-- `GET /api/episodes` - lista odcinków
-- `GET /api/episodes/:id` - szczegóły odcinka
+## 🧪 Testy
 
-### Endpointy użytkownika:
-- `GET /api/users/profile` - profil użytkownika
-- `PUT /api/users/profile` - aktualizacja profilu
-- `GET /api/achievements` - osiągnięcia użytkownika
+### Uruchomienie testów
+```bash
+# Testy jednostkowe
+npm test
 
-### Endpointy powiadomień:
-- `GET /api/notifications` - powiadomienia użytkownika
-- `POST /api/notifications/:id/view` - rejestrowanie wyświetlenia
-- `POST /api/notifications/:id/dismiss` - odrzucanie powiadomienia
+# Testy E2E
+npm run test:e2e
 
-### Endpointy administratora:
-- `GET /api/users` - lista wszystkich użytkowników
-- `DELETE /api/users/:id` - usuwanie użytkownika
-- `GET /api/admin/stats` - statystyki systemu z filtrami czasowymi
-- `GET /api/notifications/admin` - lista powiadomień (admin)
-- `POST /api/notifications/admin` - tworzenie powiadomienia (admin)
-- `PUT /api/notifications/admin/:id` - edycja powiadomienia (admin)
-- `DELETE /api/notifications/admin/:id` - usuwanie powiadomienia (admin)
-- `GET /api/notifications/admin/:id/stats` - statystyki powiadomienia (admin)
+# Testy z coverage
+npm run test:coverage
+```
 
-## 🤝 Wkład w projekt
+### Struktura testów
+- **Unit tests** - testy jednostkowe komponentów
+- **Integration tests** - testy integracji API
+- **E2E tests** - testy end-to-end z Playwright
 
-1. Fork repozytorium
-2. Utwórz branch dla nowej funkcjonalności
-3. Commit zmiany
-4. Push do brancha
-5. Utwórz Pull Request
+## 🚀 Deployment
+
+### Produkcja
+```bash
+# Build aplikacji
+npm run build
+
+# Uruchomienie serwera produkcyjnego
+npm start
+```
+
+### Docker (opcjonalnie)
+```bash
+# Build obrazu
+docker build -t food4thought .
+
+# Uruchomienie kontenera
+docker run -p 3001:3001 food4thought
+```
+
+## 📝 Changelog
+
+### v2.2.0 (Aktualna)
+- ✅ **System osiągnięć** - 30 osiągnięć w 10 kategoriach
+- ✅ **Statystyki użytkownika** - szczegółowe metryki aktywności
+- ✅ **Lista ukończonych odcinków** - z datami i czasem trwania
+- ✅ **System ulubionych** - pełna funkcjonalność z wyszukiwaniem
+- ✅ **Naprawione liczenie statystyk** - prawidłowe obliczanie ukończonych odcinków
+- ✅ **Ulepszone UI** - lepszy kontrast w trybie ciemnym
+- ✅ **Organizacja osiągnięć** - kategorie z opisami i postępem
+
+### v2.1.0
+- System autoryzacji z JWT
+- Panel administratora
+- Zarządzanie seriami i odcinkami
+
+### v2.0.0
+- Podstawowa funkcjonalność odtwarzania
+- System użytkowników
+- Baza danych SQLite
+
+## 🤝 Współtwórcy
+
+- **Bartek** - Główny deweloper
+- **AI Assistant** - Pomoc w implementacji funkcjonalności
 
 ## 📄 Licencja
 
-Ten projekt jest licencjonowany pod licencją MIT.
+MIT License - zobacz plik [LICENSE](LICENSE) dla szczegółów.
 
 ## 🆘 Wsparcie
 
 W przypadku problemów:
-1. Sprawdź sekcję "Znane problemy"
-2. Uruchom testy: `npm run test:users`
-3. Sprawdź logi serwera
-4. Utwórz issue w repozytorium
+1. Sprawdź [Issues](https://github.com/username/food4thought/issues)
+2. Utwórz nowy issue z opisem problemu
+3. Dołącz logi błędów i kroki reprodukcji
 
 ---
 
-**Food 4 Thought** - Twoja podróż w świat sztucznej inteligencji przez podcasty! 🎧🤖 
+**Food 4 Thought** - Twoja osobista biblioteka podcastów z gamifikacją! 🎧🏆 

@@ -1,97 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext.jsx';
-import { useTheme } from '../contexts/ThemeContext.jsx';
-import Layout from '../components/Layout.jsx';
-import StarRating from '../components/StarRating.jsx';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
+import Layout from '../components/Layout';
 import axios from 'axios';
 
 const FavoritesPage = () => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { isDarkMode } = useTheme();
+  const navigate = useNavigate();
+  
   const [favorites, setFavorites] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedEpisodes, setExpandedEpisodes] = useState({});
 
   useEffect(() => {
-    if (user) {
-      fetchFavorites();
-    }
-
-    // Dodaj event listener do odświeżania listy po zmianach w playerze
-    const handleEpisodeUpdate = () => {
-      if (user) {
-        // Odśwież tylko dane, nie resetuj stanu
-        refreshFavoritesData();
-      }
-    };
-
-    window.addEventListener('episode-favorite-toggled', handleEpisodeUpdate);
-    window.addEventListener('episode-rated', handleEpisodeUpdate);
-
-    return () => {
-      window.removeEventListener('episode-favorite-toggled', handleEpisodeUpdate);
-      window.removeEventListener('episode-rated', handleEpisodeUpdate);
-    };
-  }, [user]);
+    fetchFavorites();
+  }, [search]);
 
   const fetchFavorites = async () => {
     try {
-      setLoading(true);
       const response = await axios.get('/api/episodes/favorites', {
-        headers: { Authorization: `Bearer ${user.token}` }
+        params: { search }
       });
       setFavorites(response.data || []);
     } catch (error) {
-      console.error('Error fetching favorites:', error);
-      setFavorites([]);
+      console.error('Błąd pobierania ulubionych:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Funkcja do odświeżania danych ulubionych bez resetowania stanu
-  const refreshFavoritesData = async () => {
-    try {
-      const response = await axios.get('/api/episodes/favorites', {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      setFavorites(response.data || []);
-    } catch (error) {
-      console.error('Error refreshing favorites:', error);
-    }
-  };
-
-  const toggleEpisode = async (episodeId) => {
-    const isExpanded = expandedEpisodes[episodeId];
-    
-    // Jeśli rozwijamy odcinek i nie ma jeszcze tematów, wczytaj je
-    if (!isExpanded) {
-      const episode = favorites.find(e => e.id === episodeId);
-      if (episode && !episode.topics) {
-        try {
-          const response = await axios.get(`/api/episodes/${episodeId}/topics`, {
-            headers: { Authorization: `Bearer ${user.token}` }
-          });
-          
-          // Zaktualizuj odcinek z tematami
-          setFavorites(prev => prev.map(e => 
-            e.id === episodeId 
-              ? { ...e, topics: response.data.topics || [] }
-              : e
-          ));
-        } catch (error) {
-          console.log('Nie udało się wczytać tematów:', error);
-          // Dodaj pustą tablicę tematów żeby nie próbować wczytywać ponownie
-          setFavorites(prev => prev.map(e => 
-            e.id === episodeId 
-              ? { ...e, topics: [] }
-              : e
-          ));
-        }
-      }
-    }
-    
+  const toggleEpisode = (episodeId) => {
     setExpandedEpisodes(prev => ({
       ...prev,
       [episodeId]: !prev[episodeId]
@@ -99,93 +42,60 @@ const FavoritesPage = () => {
   };
 
   const playEpisode = (episodeId) => {
-    // Implementacja odtwarzania odcinka
-    console.log('Playing episode:', episodeId);
+    // Zapisz ID odcinka do odtworzenia w localStorage
+    localStorage.setItem('playEpisodeId', episodeId);
+    navigate('/');
   };
 
   const removeFavorite = async (episodeId) => {
     try {
-      await axios.delete(`/api/episodes/${episodeId}/favorite`, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      setFavorites(prev => prev.filter(episode => episode.id !== episodeId));
+      await axios.delete(`/api/episodes/${episodeId}/favorite`);
+      // Odśwież listę
+      fetchFavorites();
     } catch (error) {
-      console.error('Error removing favorite:', error);
-    }
-  };
-
-  const handleRatingChange = async (episodeId, rating, e) => {
-    if (e) e.stopPropagation(); // Zapobiegaj kliknięciu na odcinek
-    
-    try {
-      await axios.post(`/api/episodes/${episodeId}/rating`, { rating }, {
-        headers: { Authorization: `Bearer ${user.token}` }
-      });
-      
-      // Aktualizuj lokalny stan
-      setFavorites(prev => prev.map(episode => 
-        episode.id === episodeId 
-          ? { ...episode, user_rating: rating }
-          : episode
-      ));
-    } catch (error) {
-      console.error('Error saving rating:', error);
+      console.error('Błąd usuwania z ulubionych:', error);
     }
   };
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      'not_started': { text: 'Nie rozpoczęty', color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' },
-      'in_progress': { text: 'W trakcie', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-      'completed': { text: 'Ukończony', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-      'paused': { text: 'Wstrzymany', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' }
-    };
-
-    const config = statusConfig[status] || statusConfig['not_started'];
-    
-    return (
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.color}`}>
-        {config.text}
-      </span>
-    );
+    switch (status) {
+      case 'not_started':
+        return (
+          <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
+            Nowy
+          </span>
+        );
+      case 'in_progress':
+        return (
+          <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded">
+            W trakcie
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded">
+            Ukończony
+          </span>
+        );
+      default:
+        return null;
+    }
   };
 
   const formatDuration = (seconds) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:00`;
-    }
-    return `${minutes}:00`;
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
-  // Filtruj ulubione na podstawie wyszukiwania
-  const filteredFavorites = favorites ? favorites.filter(episode =>
-    episode.title.toLowerCase().includes(search.toLowerCase()) ||
-    episode.series_name.toLowerCase().includes(search.toLowerCase()) ||
-    (episode.additional_info && episode.additional_info.toLowerCase().includes(search.toLowerCase()))
-  ) : [];
 
   if (loading) {
     return (
       <Layout>
-        <div className="max-w-6xl mx-auto p-6">
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie ulubionych...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Layout>
-        <div className="max-w-6xl mx-auto p-6">
-          <div className="text-center py-12">
-            <p className="text-light-textSecondary dark:text-gray-400">Musisz się zalogować, aby zobaczyć ulubione odcinki.</p>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie...</p>
           </div>
         </div>
       </Layout>
@@ -226,7 +136,7 @@ const FavoritesPage = () => {
         </div>
 
         {/* Lista ulubionych pogrupowana po seriach */}
-        {filteredFavorites.length === 0 ? (
+        {favorites.length === 0 ? (
           <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-8 text-center`}>
             <p className="text-light-textSecondary dark:text-gray-400">
               {search ? 'Nie znaleziono ulubionych odcinków pasujących do wyszukiwania.' : 'Nie masz jeszcze żadnych ulubionych odcinków.'}
@@ -234,9 +144,9 @@ const FavoritesPage = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            {filteredFavorites && filteredFavorites.length > 0 ? (
+            {favorites && favorites.length > 0 ? (
               // Grupuj odcinki według serii
-              Object.values(filteredFavorites.reduce((acc, episode) => {
+              Object.values(favorites.reduce((acc, episode) => {
                 const seriesId = episode.series_id;
                 if (!acc[seriesId]) {
                   acc[seriesId] = {
@@ -266,27 +176,14 @@ const FavoritesPage = () => {
                         >
                           <div className="flex justify-between items-center">
                             <div className="flex-1">
-                                                          <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-light-text dark:text-white">
-                                {episode.title}
-                              </h3>
-                              <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
-                              </span>
-                            </div>
-                            <div className="mt-2">
-                              <StarRating
-                                rating={episode.user_rating || 0}
-                                onRatingChange={(rating, event) => handleRatingChange(episode.id, rating, event)}
-                                size="sm"
-                                showHalfStars={true}
-                              />
-                              {episode.rating_count > 0 && (
-                                <span className="text-xs text-light-textSecondary dark:text-gray-400 ml-2">
-                                  Średnia: {episode.average_rating?.toFixed(1) || 0}/5 ({episode.rating_count} ocen)
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-light-text dark:text-white">
+                                  {episode.title}
+                                </h3>
+                                <span className="text-sm text-light-textSecondary dark:text-gray-400">
+                                  • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
                                 </span>
-                              )}
-                            </div>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                               {getStatusBadge(episode.status)}
@@ -313,44 +210,6 @@ const FavoritesPage = () => {
                                 <p className="text-sm text-light-textSecondary dark:text-gray-400 whitespace-pre-wrap">
                                   {episode.additional_info}
                                 </p>
-                              </div>
-                            )}
-
-                            {/* Tematy */}
-                            {episode.topics && episode.topics.length > 0 && (
-                              <div className="mt-4">
-                                <h4 className="font-semibold text-light-text dark:text-white mb-2">
-                                  Tematy w odcinku
-                                </h4>
-                                <div className="space-y-3">
-                                  {episode.topics.map((topic, index) => (
-                                    <div key={index} className={`p-3 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'}`}>
-                                      <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs text-primary font-medium">
-                                          [{topic.timestamp}]
-                                        </span>
-                                        <h5 className="font-medium text-light-text dark:text-white">
-                                          {topic.title}
-                                        </h5>
-                                      </div>
-                                      {topic.links.length > 0 && (
-                                        <div className="ml-12 space-y-1">
-                                          {topic.links.map((link, linkIndex) => (
-                                            <a
-                                              key={linkIndex}
-                                              href={link}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="block text-xs text-primary hover:text-primary-dark transition-colors truncate"
-                                            >
-                                              {link}
-                                            </a>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
                               </div>
                             )}
 
@@ -408,3 +267,4 @@ const FavoritesPage = () => {
 };
 
 export default FavoritesPage;
+

@@ -87,25 +87,31 @@ router.get('/my', authenticateToken, async (req, res) => {
     const userId = parseInt(req.user.id);
     
     // Pobierz wszystkie odcinki z informacjami o serii i statusie użytkownika
+    // Zoptymalizowane zapytanie z lepszymi indeksami
     const episodes = await db.all(`
       SELECT 
-        e.*,
+        e.id,
+        e.series_id,
+        e.title,
+        e.filename,
+        e.date_added,
+        e.average_rating,
+        e.additional_info,
         s.name as series_name,
         s.color as series_color,
         s.image as series_image,
-        up.position as user_position,
-        up.completed as user_completed,
+        COALESCE(up.position, 0) as user_position,
+        COALESCE(up.completed, 0) as user_completed,
         up.last_played as user_last_played,
-        r.rating as user_rating,
+        COALESCE(r.rating, 0) as user_rating,
         r.created_at as rated_at,
-        uf.episode_id as is_favorite,
+        CASE WHEN uf.episode_id IS NOT NULL THEN 1 ELSE 0 END as is_favorite,
         uf.added_at as favorited_at
       FROM episodes e
-      JOIN series s ON e.series_id = s.id
+      INNER JOIN series s ON e.series_id = s.id AND s.active = 1
       LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
       LEFT JOIN ratings r ON e.id = r.episode_id AND r.user_id = ?
       LEFT JOIN user_favorites uf ON e.id = uf.episode_id AND uf.user_id = ?
-      WHERE s.active = 1
       ORDER BY e.date_added DESC
     `, [userId, userId, userId]);
     

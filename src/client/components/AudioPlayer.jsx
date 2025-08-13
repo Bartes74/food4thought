@@ -70,12 +70,25 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     
     try {
       const now = new Date().toISOString();
+      
+      // Oblicz completion_rate na podstawie postępu
+      let completionRate = 0;
+      if (duration > 0) {
+        const progress = currentTime / duration;
+        // Jeśli odcinek jest prawie ukończony (90% lub więcej), uznaj za ukończony
+        if (progress >= 0.9) {
+          completionRate = 1.0; // 100% ukończony
+        } else {
+          completionRate = progress; // Rzeczywisty postęp
+        }
+      }
+      
       const sessionData = {
         episodeId: episode.id,
         startTime: sessionStartTime || now,
         endTime: action === 'end' ? now : null,
         playbackSpeed: playbackRate,
-        completionRate: duration > 0 ? currentTime / duration : 0,
+        completionRate: completionRate,
         durationSeconds: Math.floor(currentTime)
       };
 
@@ -195,8 +208,25 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
         });
         console.log('Episode marked as completed successfully');
         
-        // Rejestruj sesję dla osiągnięć
-        await recordListeningSession('end');
+        // Rejestruj sesję dla osiągnięć z completion_rate = 1.0
+        if (user) {
+          const now = new Date().toISOString();
+          const sessionData = {
+            episodeId: episode.id,
+            startTime: sessionStartTime || now,
+            endTime: now,
+            playbackSpeed: playbackRate,
+            completionRate: 1.0, // 100% ukończony
+            durationSeconds: Math.floor(duration)
+          };
+          
+          try {
+            await axios.post('/api/achievements/record-session', sessionData);
+            console.log('Session recorded with completion_rate = 1.0');
+          } catch (error) {
+            console.error('Błąd podczas rejestrowania sesji ukończenia:', error);
+          }
+        }
         
         // Oznacz odcinek jako ukończony w systemie osiągnięć
         // TODO: Dodać endpoint do obsługi ukończenia odcinka dla osiągnięć

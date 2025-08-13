@@ -34,6 +34,38 @@ router.get('/series-stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Aktualizuj preferencje użytkownika
+router.put('/preferences', authenticateToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const userId = parseInt(req.user.id);
+    const preferences = req.body;
+    
+    // Sprawdź czy użytkownik istnieje
+    const user = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
+    }
+    
+    // Walidacja preferencji
+    if (!preferences || typeof preferences !== 'object') {
+      return res.status(400).json({ error: 'Nieprawidłowe preferencje' });
+    }
+    
+    // Zaktualizuj preferencje w bazie
+    const preferencesJson = JSON.stringify(preferences);
+    await db.run(
+      'UPDATE users SET preferences = ? WHERE id = ?',
+      [preferencesJson, userId]
+    );
+    
+    res.json({ message: 'Preferencje zostały zaktualizowane' });
+  } catch (error) {
+    console.error('Update preferences error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 // Pobierz dane użytkownika
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
@@ -70,29 +102,26 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Brak uprawnień' });
     }
     
+    // Pobierz statystyki z user_stats
+    const userStats = await db.get(`
+      SELECT 
+        total_listening_time,
+        total_episodes_completed,
+        current_streak,
+        longest_streak
+      FROM user_stats 
+      WHERE user_id = ?
+    `, [userId]);
+    
     // Pobierz podstawowe statystyki
     const stats = {
-      totalListeningTime: 0,
-      completedCount: 0,
+      totalListeningTime: userStats?.total_listening_time || 0, // w sekundach
+      completedCount: userStats?.total_episodes_completed || 0,
       inProgressCount: 0,
-      favoritesCount: 0
+      favoritesCount: 0,
+      currentStreak: userStats?.current_streak || 0,
+      longestStreak: userStats?.longest_streak || 0
     };
-    
-    // Całkowity czas słuchania (suma pozycji z ukończonych odcinków)
-    const listeningTime = await db.get(`
-      SELECT COALESCE(SUM(position), 0) as total_time 
-      FROM user_progress 
-      WHERE user_id = ? AND completed = 1
-    `, [userId]);
-    stats.totalListeningTime = Math.round(listeningTime.total_time / 60); // w minutach
-    
-    // Liczba ukończonych odcinków
-    const completed = await db.get(`
-      SELECT COUNT(DISTINCT episode_id) as count 
-      FROM user_progress 
-      WHERE user_id = ? AND completed = 1
-    `, [userId]);
-    stats.completedCount = completed.count;
     
     // Liczba odcinków w trakcie (taka sama logika jak w /api/episodes/my)
     const inProgress = await db.get(`
@@ -109,6 +138,26 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       WHERE user_id = ?
     `, [userId]);
     stats.favoritesCount = favorites.count;
+    
+    // Lista ukończonych odcinków
+    const completedEpisodes = await db.all(`
+      SELECT 
+        e.id,
+        e.title,
+        e.date_added,
+        s.name as series_name,
+        s.color as series_color,
+        ls.start_time,
+        ls.duration_seconds as final_position
+      FROM listening_sessions ls
+      JOIN episodes e ON ls.episode_id = e.id
+      JOIN series s ON e.series_id = s.id
+      WHERE ls.user_id = ? AND ls.completion_rate >= 0.9
+      GROUP BY e.id
+      ORDER BY ls.start_time DESC
+    `, [userId]);
+    
+    stats.completedEpisodes = completedEpisodes;
     
     res.json(stats);
   } catch (error) {
@@ -181,17 +230,18 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     console.log(`Deleting user ${userId} data...`);
     
     try {
-      // Usuń powiązane dane pojedynczo
+      // Usuń powiązane dane pojedynczo w odpowiedniej kolejności
       console.log('Deleting all related data...');
       
-      await db.get('DELETE FROM user_progress WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM user_favorites WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM ratings WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM comments WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM user_achievements WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM user_stats WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM listening_sessions WHERE user_id = ?', [userId]);
-      await db.get('DELETE FROM password_resets WHERE user_id = ?', [userId]);
+      // Najpierw usuń dane z tabel z foreign key constraints
+      await db.run('DELETE FROM user_achievements WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM user_stats WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM listening_sessions WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM user_progress WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM user_favorites WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM ratings WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM comments WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM password_resets WHERE user_id = ?', [userId]);
       
       console.log('All related data deleted successfully');
     } catch (deleteError) {
@@ -222,6 +272,8 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     res.status(500).json({ error: 'Błąd serwera', details: error.message });
   }
 });
+
+
 
 // Reset hasła użytkownika (admin only)
 router.post('/:id/reset-password', authenticateToken, requireAdmin, async (req, res) => {

@@ -8,7 +8,7 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
-    const series = await db.all('SELECT * FROM series ORDER BY name');
+    const series = await db.all('SELECT id, name, active, created_at, image, color FROM series WHERE active = 1 ORDER BY name');
     res.json(series);
   } catch (error) {
     console.error('Get series error:', error);

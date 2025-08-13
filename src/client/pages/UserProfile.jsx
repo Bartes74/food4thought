@@ -37,13 +37,16 @@ const UserProfile = () => {
 
   const fetchData = async () => {
     try {
+      setLoading(true);
+      
       // Pobierz serie
       const seriesRes = await axios.get('/api/series');
-      setSeries(seriesRes.data);
+      setSeries(seriesRes.data || []);
       
-      // Pobierz preferencje użytkownika
+      // Pobierz dane użytkownika z preferencjami
       const userRes = await axios.get('/api/auth/me');
-      const userPrefs = userRes.data.user.preferences || {};
+      const userData = userRes.data.user;
+      const userPrefs = userData.preferences || {};
       
       setPreferences({
         language: userPrefs.language || 'polski',
@@ -56,7 +59,6 @@ const UserProfile = () => {
       
       // Ustaw wybrane serie
       if (userPrefs.activeSeries && Array.isArray(userPrefs.activeSeries)) {
-        // Konwertuj na stringi dla pewności
         setSelectedSeries(userPrefs.activeSeries.map(id => id.toString()));
       }
     } catch (error) {
@@ -93,7 +95,6 @@ const UserProfile = () => {
   };
 
   const toggleSeriesSelection = (seriesId) => {
-    // Upewnij się, że pracujemy na stringach
     const seriesIdStr = seriesId.toString();
     if (selectedSeries.includes(seriesIdStr)) {
       setSelectedSeries(selectedSeries.filter(id => id !== seriesIdStr));
@@ -135,6 +136,11 @@ const UserProfile = () => {
               <span className="font-medium">Rola:</span> {
                 user?.role === 'super_admin' ? 'Super Administrator' :
                 user?.role === 'admin' ? 'Administrator' : 'Użytkownik'
+              }
+            </p>
+            <p className="text-light-text dark:text-gray-300">
+              <span className="font-medium">Data utworzenia:</span> {
+                user?.created_at ? new Date(user.created_at).toLocaleDateString('pl-PL') : 'Nieznana'
               }
             </p>
           </div>
@@ -265,7 +271,7 @@ const UserProfile = () => {
                 className="text-primary"
               />
               <span className="text-light-text dark:text-gray-300">
-                Wszystkie serie
+                Wszystkie serie ({series.length})
               </span>
             </label>
             
@@ -278,7 +284,7 @@ const UserProfile = () => {
                 className="text-primary"
               />
               <span className="text-light-text dark:text-gray-300">
-                Wybrane serie
+                Wybrane serie ({selectedSeries.length})
               </span>
             </label>
           </div>
@@ -297,7 +303,7 @@ const UserProfile = () => {
                     className="text-primary"
                   />
                   <span className="text-light-text dark:text-gray-300">
-                    {seria.name} ({seria.episode_count || 0} odcinków)
+                    {seria.name}
                   </span>
                 </label>
               ))}
@@ -332,3 +338,4 @@ const UserProfile = () => {
 };
 
 export default UserProfile;
+

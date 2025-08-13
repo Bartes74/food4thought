@@ -277,8 +277,14 @@ async function initDatabase(db) {
 
     // Dodaj indeksy dla lepszej wydajności zapytań
     await db.run('CREATE INDEX IF NOT EXISTS idx_episodes_series_id ON episodes(series_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_episodes_date_added ON episodes(date_added DESC)');
     await db.run('CREATE INDEX IF NOT EXISTS idx_ratings_episode_id ON ratings(episode_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_ratings_user_episode ON ratings(user_id, episode_id)');
     await db.run('CREATE INDEX IF NOT EXISTS idx_listening_sessions_user_episode ON listening_sessions(user_id, episode_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_user_progress_user_episode ON user_progress(user_id, episode_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_user_favorites_user_episode ON user_favorites(user_id, episode_id)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_series_active ON series(active)');
+    await db.run('CREATE INDEX IF NOT EXISTS idx_series_name ON series(name)');
     
     // Dodaj kolumnę created_at do listening_sessions jeśli nie istnieje
     try {
@@ -300,46 +306,59 @@ async function initDatabase(db) {
 
 // Inicjalizacja bazy danych
 let dbInstance = null;
+let initPromise = null;
 
 /**
  * Gets a database connection instance
  * @returns {Promise<import('sqlite').Database>} Database instance
  */
 export async function getDb() {
-  if (!dbInstance) {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const dbPath = path.join(__dirname, '..', '..', 'data', 'food4thought.db');
-
-    dbInstance = await open({
-      filename: dbPath,
-      driver: sqlite3.Database
-    });
-
-    // Configure database
-    await dbInstance.run('PRAGMA journal_mode = WAL');
-    await dbInstance.run(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT}`);
-    await dbInstance.run('PRAGMA foreign_keys = ON');
-    
-    // Initialize database schema
-    await initDatabase(dbInstance);
+  // Jeśli dbInstance już istnieje, zwróć go bezpośrednio
+  if (dbInstance) {
+    return dbInstance;
   }
   
-  return dbInstance;
+  if (!initPromise) {
+    initPromise = (async () => {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const dbPath = path.join(__dirname, '..', '..', 'data', 'food4thought.db');
+
+      dbInstance = await open({
+        filename: dbPath,
+        driver: sqlite3.Database
+      });
+
+      // Configure database for maximum performance
+      await dbInstance.run('PRAGMA journal_mode = WAL');
+      await dbInstance.run(`PRAGMA busy_timeout = ${SQLITE_BUSY_TIMEOUT}`);
+      await dbInstance.run('PRAGMA foreign_keys = ON');
+      await dbInstance.run('PRAGMA synchronous = NORMAL');
+      await dbInstance.run('PRAGMA cache_size = 50000');
+      await dbInstance.run('PRAGMA temp_store = MEMORY');
+      await dbInstance.run('PRAGMA mmap_size = 268435456'); // 256MB
+      await dbInstance.run('PRAGMA page_size = 4096');
+      
+      // Initialize database schema only if needed
+      const versionResult = await dbInstance.get('PRAGMA user_version');
+      const currentVersion = versionResult ? versionResult.user_version : 0;
+      
+      if (currentVersion < 3) {
+        await initDatabase(dbInstance);
+      }
+      
+      return dbInstance;
+    })();
+  }
+  
+  return initPromise;
 }
 
 // Initialize database when imported
-let initPromise = null;
-
 export async function initializeDatabase() {
-  if (!initPromise) {
-    initPromise = (async () => {
-      const db = await getDb();
-      await initializeAchievements(db);
-      return db;
-    })();
-  }
-  return initPromise;
+  const db = await getDb();
+  await initializeAchievements(db);
+  return db;
 }
 
 // For backward compatibility

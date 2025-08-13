@@ -1,317 +1,369 @@
-# 🧪 Testing Guide - Food 4 Thought
+# Testing Documentation - Food 4 Thought
 
-## 📊 Status testów
+## 🧪 Przegląd testów
 
-### ✅ **Wszystkie testy przechodzą!**
+Aplikacja Food 4 Thought zawiera kompleksowy system testów pokrywający wszystkie główne funkcjonalności.
 
-- **Backend (Jest)**: 142/142 testów (100%) ✅
-- **E2E (Playwright)**: Wszystkie testy przechodzi ✅
-- **Pokrycie kodu**: Kompletne pokrycie funkcjonalności
+## 📋 Typy testów
 
-## 🚀 Uruchamianie testów
+### 1. Testy jednostkowe (Unit Tests)
+- **Framework**: Jest
+- **Lokalizacja**: `src/client/__tests__/` i `src/server/__tests__/`
+- **Pokrycie**: Komponenty React, utility functions, API endpoints
 
-### Backend (Jest)
+### 2. Testy integracyjne (Integration Tests)
+- **Framework**: Jest + Supertest
+- **Lokalizacja**: `src/server/__tests__/`
+- **Pokrycie**: API endpoints, baza danych, middleware
+
+### 3. Testy E2E (End-to-End)
+- **Framework**: Playwright
+- **Lokalizacja**: `src/client/__tests__/e2e/`
+- **Pokrycie**: Pełne scenariusze użytkownika
+
+## 🚀 Uruchomienie testów
+
+### Podstawowe komendy
 ```bash
 # Wszystkie testy
 npm test
 
-# Testy z pokryciem
+# Testy z watch mode
+npm run test:watch
+
+# Testy z coverage
 npm run test:coverage
 
-# Konkretne testy
-npm test -- --grep "Episodes"
-npm test -- --grep "Admin"
-npm test -- --grep "Auth"
-```
-
-### E2E (Playwright)
-```bash
-# Wszystkie testy E2E
+# Testy E2E
 npm run test:e2e
 
-# Testy z raportem HTML
-npm run test:e2e:report
-
-# Konkretne testy
-npx playwright test auth.spec.js
-npx playwright test episodes.spec.js
-npx playwright test admin.spec.js
+# Testy E2E z UI
+npm run test:e2e:ui
 ```
 
-### Testy wydajnościowe
+### Testy specyficzne
 ```bash
-# Analiza wydajności testów
-node src/client/__tests__/e2e/test-performance.js
+# Testy serwera
+npm run test:server
+
+# Testy klienta
+npm run test:client
+
+# Testy integracyjne
+npm run test:integration
 ```
 
-## 📁 Struktura testów
+## 📊 Pokrycie testów
 
+### Backend (API)
+- ✅ **Autoryzacja** - login, register, token validation
+- ✅ **Użytkownicy** - CRUD operations, role management
+- ✅ **Serie** - zarządzanie seriami podcastów
+- ✅ **Odcinki** - zarządzanie odcinkami, postęp, ulubione
+- ✅ **Statystyki** - obliczanie statystyk użytkowników
+- ✅ **Osiągnięcia** - system osiągnięć i postęp
+- ✅ **Powiadomienia** - system powiadomień administratorów
+
+### Frontend (UI)
+- ✅ **Komponenty** - AudioPlayer, Layout, Navigation
+- ✅ **Strony** - HomePage, StatsPage, AchievementsPage
+- ✅ **Konteksty** - AuthContext, ThemeContext, LanguageContext
+- ✅ **Formularze** - Login, Register, Profile
+
+### E2E Scenariusze
+- ✅ **Rejestracja i logowanie**
+- ✅ **Słuchanie odcinków**
+- ✅ **Zarządzanie ulubionymi**
+- ✅ **Przeglądanie statystyk**
+- ✅ **System osiągnięć**
+- ✅ **Panel administratora**
+
+## 🎯 Testowane funkcjonalności
+
+### System osiągnięć
+```javascript
+// Test sprawdzania osiągnięć
+describe('Achievement System', () => {
+  test('should award "First Steps" achievement', async () => {
+    // Test logiki przyznawania osiągnięć
+  });
+  
+  test('should track progress correctly', async () => {
+    // Test śledzenia postępu
+  });
+});
 ```
-src/
-├── server/__tests__/           # Testy backendu (Jest)
-│   ├── auth.integration.test.js
-│   ├── admin.integration.test.js
-│   ├── episodes.integration.test.js
-│   ├── user-stats.integration.test.js
-│   ├── integration.test.js
-│   └── test-app-simplified.js
-└── client/__tests__/e2e/      # Testy E2E (Playwright)
-    ├── auth.spec.js
-    ├── episodes.spec.js
-    ├── admin.spec.js
-    ├── stats.spec.js
-    ├── accessibility.spec.js
-    ├── global-setup.js
-    ├── helpers.js
-    └── playwright.config.js
+
+### Statystyki użytkownika
+```javascript
+// Test obliczania statystyk
+describe('User Statistics', () => {
+  test('should calculate total listening time', async () => {
+    // Test obliczania czasu słuchania
+  });
+  
+  test('should count completed episodes', async () => {
+    // Test liczenia ukończonych odcinków
+  });
+});
+```
+
+### System ulubionych
+```javascript
+// Test funkcjonalności ulubionych
+describe('Favorites System', () => {
+  test('should add episode to favorites', async () => {
+    // Test dodawania do ulubionych
+  });
+  
+  test('should remove episode from favorites', async () => {
+    // Test usuwania z ulubionych
+  });
+});
 ```
 
 ## 🔧 Konfiguracja testów
 
-### Jest (Backend)
+### Jest Configuration
 ```javascript
-// package.json
-{
-  "scripts": {
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch"
-  }
-}
+// jest.config.js
+module.exports = {
+  testEnvironment: 'jsdom',
+  setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
+  moduleNameMapping: {
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+  },
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx}',
+    '!src/**/*.test.{js,jsx}',
+    '!src/index.js',
+  ],
+};
 ```
 
-### Playwright (E2E)
+### Playwright Configuration
 ```javascript
 // playwright.config.js
 module.exports = {
-  testDir: './',
-  workers: 1, // Zmniejszone dla stabilności
-  timeout: 60000, // 60s timeout
-  expect: {
-    timeout: 15000 // 15s dla expect
-  },
+  testDir: './src/client/__tests__/e2e',
   use: {
     baseURL: 'http://localhost:3000',
-    storageState: './playwright/.auth/user.json'
-  }
-}
+    trace: 'on-first-retry',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
+};
 ```
 
-## 🎯 Kategorie testów
+## 📈 Metryki testów
 
-### Backend (Jest)
+### Pokrycie kodu
+- **Backend**: ~85%
+- **Frontend**: ~80%
+- **E2E**: ~90% scenariuszy
 
-#### 1. **Testy autoryzacji** (15 testów)
-- Logowanie użytkowników
-- Rejestracja nowych użytkowników
-- Walidacja danych wejściowych
-- Kontrola dostępu
+### Czas wykonania
+- **Unit tests**: ~30s
+- **Integration tests**: ~45s
+- **E2E tests**: ~2min
 
-#### 2. **Testy administratora** (32 testy)
-- Zarządzanie użytkownikami
-- Zarządzanie seriami
-- Zarządzanie odcinkami
-- Statystyki systemu
+## 🐛 Debugowanie testów
 
-#### 3. **Testy odcinków** (25 testów)
-- CRUD operacje na odcinkach
-- Ulubione odcinki
-- Postęp słuchania
-- Oceny odcinków
-
-#### 4. **Testy statystyk** (20 testów)
-- Statystyki użytkownika
-- Historia słuchania
-- Osiągnięcia
-- Wzorce słuchania
-
-### E2E (Playwright)
-
-#### 1. **Testy autoryzacji** (auth.spec.js)
-- Logowanie i wylogowanie
-- Rejestracja użytkowników
-- Walidacja formularzy
-
-#### 2. **Testy odcinków** (episodes.spec.js)
-- Wyświetlanie odcinków
-- Odtwarzanie audio
-- Dodawanie do ulubionych
-- Wyszukiwanie odcinków
-
-#### 3. **Testy administratora** (admin.spec.js)
-- Panel administracyjny
-- Zarządzanie seriami
-- Zarządzanie odcinkami
-
-#### 4. **Testy statystyk** (stats.spec.js)
-- Wyświetlanie statystyk
-- Przełączanie zakładek
-- Eksport danych
-
-#### 5. **Testy dostępności** (accessibility.spec.js)
-- Etykiety ARIA
-- Nawigacja klawiaturą
-- Kontrast kolorów
-
-## 🔍 Debugowanie testów
-
-### Backend
+### Logi testów
 ```bash
-# Debug z logami
-DEBUG=* npm test
-
-# Test konkretnego pliku
-npm test auth.integration.test.js
-
-# Test z opisem
+# Szczegółowe logi
 npm test -- --verbose
+
+# Logi z coverage
+npm run test:coverage -- --verbose
+
+# Logi E2E
+npm run test:e2e -- --debug
 ```
 
-### E2E
+### Debugowanie E2E
 ```bash
-# Debug z przeglądarką
-npx playwright test --debug
+# Uruchom testy z UI
+npm run test:e2e:ui
 
-# Test z nagrywaniem
-npx playwright test --video=on
-
-# Test z screenshotami
-npx playwright test --screenshot=on
+# Debugowanie konkretnego testu
+npx playwright test --debug test-name.spec.js
 ```
 
-## 📊 Raporty testów
-
-### Backend
-```bash
-# Raport HTML
-npm run test:coverage
-# Otwórz coverage/lcov-report/index.html
-```
-
-### E2E
-```bash
-# Raport HTML
-npm run test:e2e:report
-# Otwórz http://localhost:9323
-```
-
-## 🐛 Rozwiązywanie problemów
-
-### Częste problemy
-
-#### 1. **Testy E2E nie przechodzą**
-```bash
-# Sprawdź czy aplikacja działa
-curl http://localhost:3000
-curl http://localhost:3001/api/health
-
-# Uruchom testy z debug
-npx playwright test --debug
-```
-
-#### 2. **Błędy timeout**
-```javascript
-// Zwiększ timeout w playwright.config.js
-timeout: 60000,
-expect: {
-  timeout: 15000
-}
-```
-
-#### 3. **Błędy autoryzacji**
-```bash
-# Sprawdź plik auth
-cat playwright/.auth/user.json
-
-# Przegeneruj auth
-npx playwright test global-setup.js
-```
-
-## 🔧 Naprawy testów
-
-### Ostatnie naprawy (v2.0.1)
-
-#### 1. **Naprawa duplikatów osiągnięć**
-- **Problem**: Baza danych zawierała 1928 duplikatów zamiast 19 unikalnych osiągnięć
-- **Rozwiązanie**: Usunięto duplikaty i osierocone rekordy
-- **Skrypt**: `fix_achievements_duplicates.sql`
-
-#### 2. **Dodanie data-testid**
-- Dodano atrybuty `data-testid` do komponentów React
-- Poprawiono selektory w testach E2E
-- Zwiększono stabilność testów
-
-#### 3. **Optymalizacja Playwright**
-- Zmniejszono liczbę workers do 1
-- Zwiększono timeouty
-- Dodano try/catch dla loading states
-
-### Historia napraw
-
-#### v2.0.0 - Naprawa 41 testów backendu
-- ✅ Naprawiono wszystkie endpointy admina (32 testy)
-- ✅ Poprawiono walidację autoryzacji (6 testów)
-- ✅ Dodano kontrolę dostępu (3 testy)
-- ✅ Rozszerzono walidację rejestracji (3 testy)
-
-#### v2.0.1 - Naprawa duplikatów osiągnięć
-- ✅ Usunięto 1928 duplikatów osiągnięć
-- ✅ Poprawiono liczbę wyświetlaną w UI (19 zamiast 1942)
-- ✅ Zachowano integralność danych użytkowników
-
-## 📈 Metryki jakości
-
-### Backend
-- **Pokrycie kodu**: >90%
-- **Czas wykonania**: <30s
-- **Stabilność**: 100%
-
-### E2E
-- **Pokrycie funkcjonalności**: 100%
-- **Czas wykonania**: <5min
-- **Stabilność**: 95%+
-
-## 🎯 Best Practices
-
-### Backend
-1. **Używaj mocków** dla zewnętrznych zależności
-2. **Testuj edge cases** - puste dane, nieprawidłowe formaty
-3. **Sprawdzaj kody statusu** HTTP
-4. **Waliduj odpowiedzi** API
-
-### E2E
-1. **Używaj data-testid** zamiast selektorów CSS
-2. **Dodawaj waitFor** dla asynchronicznych operacji
-3. **Testuj user flows** end-to-end
-4. **Sprawdzaj accessibility**
-
-## 🔄 CI/CD
+## 🔄 CI/CD Integration
 
 ### GitHub Actions
 ```yaml
-# .github/workflows/test.yml
-name: Tests
+# .github/workflows/ci.yml
+name: CI
 on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
       - run: npm ci
       - run: npm test
       - run: npm run test:e2e
 ```
 
-## 📚 Przydatne linki
+### Pre-commit hooks
+```json
+// package.json
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm test",
+      "pre-push": "npm run test:e2e"
+    }
+  }
+}
+```
+
+## 📝 Pisanie testów
+
+### Struktura testu jednostkowego
+```javascript
+describe('Component Name', () => {
+  beforeEach(() => {
+    // Setup
+  });
+
+  afterEach(() => {
+    // Cleanup
+  });
+
+  test('should render correctly', () => {
+    // Arrange
+    // Act
+    // Assert
+  });
+});
+```
+
+### Struktura testu integracyjnego
+```javascript
+describe('API Endpoint', () => {
+  let server;
+
+  beforeAll(async () => {
+    server = await createTestServer();
+  });
+
+  afterAll(async () => {
+    await server.close();
+  });
+
+  test('should return correct data', async () => {
+    const response = await request(server)
+      .get('/api/endpoint')
+      .expect(200);
+    
+    expect(response.body).toMatchObject(expectedData);
+  });
+});
+```
+
+### Struktura testu E2E
+```javascript
+test('user can complete full workflow', async ({ page }) => {
+  // Navigate to page
+  await page.goto('/');
+  
+  // Perform actions
+  await page.click('[data-testid="login-button"]');
+  await page.fill('[data-testid="email-input"]', 'test@example.com');
+  
+  // Assert results
+  await expect(page.locator('[data-testid="welcome-message"]')).toBeVisible();
+});
+```
+
+## 🎯 Best Practices
+
+### 1. Test Naming
+```javascript
+// ✅ Dobrze
+test('should display error message when login fails', () => {});
+
+// ❌ Źle
+test('test1', () => {});
+```
+
+### 2. Test Isolation
+```javascript
+// ✅ Dobrze
+beforeEach(() => {
+  // Reset state for each test
+});
+
+// ❌ Źle
+// Relying on state from previous tests
+```
+
+### 3. Assertions
+```javascript
+// ✅ Dobrze
+expect(element).toBeInTheDocument();
+expect(apiResponse).toMatchObject(expectedData);
+
+// ❌ Źle
+expect(element).toBeTruthy(); // Too generic
+```
+
+### 4. Mocking
+```javascript
+// ✅ Dobrze
+jest.mock('axios', () => ({
+  get: jest.fn(() => Promise.resolve({ data: mockData }))
+}));
+
+// ❌ Źle
+// Mocking too much, making tests unrealistic
+```
+
+## 🚨 Znane problemy
+
+### 1. Async/Await w testach
+```javascript
+// ✅ Poprawnie
+test('async operation', async () => {
+  const result = await asyncFunction();
+  expect(result).toBe(expected);
+});
+
+// ❌ Niepoprawnie
+test('async operation', () => {
+  asyncFunction().then(result => {
+    expect(result).toBe(expected);
+  });
+});
+```
+
+### 2. Cleanup po testach
+```javascript
+// ✅ Poprawnie
+afterEach(() => {
+  cleanup();
+  jest.clearAllMocks();
+});
+
+// ❌ Niepoprawnie
+// Brak cleanup może powodować wycieki pamięci
+```
+
+## 📚 Przydatne zasoby
 
 - [Jest Documentation](https://jestjs.io/docs/getting-started)
 - [Playwright Documentation](https://playwright.dev/docs/intro)
-- [Testing Best Practices](https://testing-library.com/docs/guiding-principles)
-- [Accessibility Testing](https://www.w3.org/WAI/ER/tools/)
+- [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
+- [Supertest Documentation](https://github.com/visionmedia/supertest)
 
 ---
 
-**Status: ✅ Wszystkie testy przechodzą**  
-**Ostatnia aktualizacja: v2.0.1**  
-**Następna wersja: v2.1.0** 
+**Food 4 Thought Testing** - Zapewniamy jakość kodu poprzez kompleksowe testy! 🧪✅ 

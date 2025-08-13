@@ -1,242 +1,57 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
-import axios from 'axios';
 import Layout from '../components/Layout';
-import HistorySection from '../components/HistorySection';
-import StarRating from '../components/StarRating';
+import axios from 'axios';
 
 const StatsPage = () => {
   const { user } = useAuth();
-  const { isDark: isDarkMode } = useTheme();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState('overview');
+  const { t } = useLanguage();
+  const { isDarkMode } = useTheme();
+  
   const [stats, setStats] = useState(null);
   const [seriesStats, setSeriesStats] = useState([]);
-  const [topRatedEpisodes, setTopRatedEpisodes] = useState([]);
-  const [achievements, setAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
-  const fetchStatsRef = useRef();
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const fetchStats = useCallback(async () => {
-    if (!user || !user.id) return;
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
     try {
-      const response = await axios.get(`/api/users/${user.id}/stats`);
-      setStats(response.data);
+      const [statsResponse, seriesResponse] = await Promise.all([
+        axios.get(`/api/users/${user.id}/stats`),
+        axios.get('/api/users/series-stats')
+      ]);
       
-      // Pobierz statystyki według serii
-      const seriesResponse = await axios.get('/api/users/series-stats');
-      setSeriesStats(seriesResponse.data || []);
+      console.log('Stats response:', statsResponse.data);
+      console.log('Completed episodes:', statsResponse.data.completedEpisodes);
       
-      // Pobierz najwyżej oceniane odcinki
-      const topRatedResponse = await axios.get('/api/episodes/my/top-rated');
-      setTopRatedEpisodes(topRatedResponse.data || []);
-
-      // Pobierz osiągnięcia z backendu
-      const achievementsResponse = await axios.get('/api/achievements');
-      setAchievements(achievementsResponse.data || []);
+      setStats(statsResponse.data);
+      setSeriesStats(seriesResponse.data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Błąd pobierania statystyk:', error);
     } finally {
       setLoading(false);
     }
-  }, [user]);
-
-  // Aktualizuj ref przy każdej zmianie fetchStats
-  useEffect(() => {
-    fetchStatsRef.current = fetchStats;
-  }, [fetchStats]);
-
-  useEffect(() => {
-    if (user && user.id) {
-      fetchStatsRef.current?.();
-    }
-    
-    // Sprawdź URL parametr tab
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['overview', 'series', 'patterns', 'achievements', 'history', 'ratings'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-  }, [searchParams, user]);
-  
-  useEffect(() => {
-    const handler = () => {
-      if (user && user.id) {
-        fetchStatsRef.current?.();
-      }
-    };
-    window.addEventListener('user-rated-episode', handler);
-    return () => {
-      window.removeEventListener('user-rated-episode', handler);
-    };
-  }, [user]);
-
-  const formatTime = (minutes) => {
-    if (!minutes) return '0 min';
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return hours > 0 ? `${hours}h ${mins}min` : `${mins} min`;
   };
 
-const getAllAchievements = () => {
-    if (!stats || !achievements || !achievements.length) return { unlocked: [], locked: [], achievements: [], nextGoal: null };
+  const formatTime = (seconds) => {
+    if (!seconds || seconds === 0) return 'Dni: 0, 00:00:00';
     
-    const totalHours = stats.totalListeningTime / 60;
-    const allAchievements = [];
+    const days = Math.floor(seconds / (24 * 3600));
+    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
     
-    // 🎧 OSIĄGNIĘCIA ZA LICZBĘ ODCINKÓW
-    const episodeMilestones = [
-      { count: 1, name: 'Pierwszy krok', description: 'Ukończono pierwszy odcinek', icon: '🎧' },
-      { count: 10, name: '10 odcinków', description: 'Ukończono 10 odcinków', icon: '🏆' },
-      { count: 25, name: '25 odcinków', description: 'Ukończono 25 odcinków', icon: '🏆' },
-      { count: 50, name: '50 odcinków', description: 'Ukończono 50 odcinków', icon: '🏆' },
-      { count: 100, name: '100 odcinków', description: 'Ukończono 100 odcinków', icon: '🏆' }
-    ];
-
-    episodeMilestones.forEach(milestone => {
-      allAchievements.push({
-        id: `episodes_${milestone.count}`,
-        name: milestone.name,
-        description: milestone.description,
-        icon: milestone.icon,
-        category: 'episodes',
-        unlocked: stats.completedCount >= milestone.count,
-        progress: Math.min(stats.completedCount, milestone.count),
-        target: milestone.count,
-        progressText: `${stats.completedCount}/${milestone.count}`
-      });
-    });
-
-    // ⏰ OSIĄGNIĘCIA ZA CZAS SŁUCHANIA
-    const timeMilestones = [
-      { hours: 10, name: '10 godzin', description: '10 godzin słuchania', icon: '⏰' },
-      { hours: 50, name: '50 godzin', description: '50 godzin słuchania', icon: '⏱️' },
-      { hours: 100, name: '100 godzin', description: '100 godzin słuchania', icon: '📻' },
-      { hours: 200, name: '200 godzin', description: '200 godzin słuchania', icon: '🎵' },
-      { hours: 500, name: '500 godzin', description: '500 godzin słuchania', icon: '🎼' }
-    ];
-
-    timeMilestones.forEach(milestone => {
-      allAchievements.push({
-        id: `time_${milestone.hours}`,
-        name: milestone.name,
-        description: milestone.description,
-        icon: milestone.icon,
-        category: 'time',
-        unlocked: totalHours >= milestone.hours,
-        progress: Math.min(totalHours, milestone.hours),
-        target: milestone.hours,
-        progressText: `${Math.round(totalHours)}h/${milestone.hours}h`
-      });
-    });
-
-    // ❤️ OSIĄGNIĘCIA ZA ULUBIONE
-    const favoriteMilestones = [
-      { count: 1, name: 'Pierwsze serce', description: 'Dodano pierwszy ulubiony odcinek', icon: '💖' },
-      { count: 10, name: 'Miłośnik', description: '10 ulubionych odcinków', icon: '❤️' },
-      { count: 25, name: 'Kolekcjoner serc', description: '25 ulubionych odcinków', icon: '💕' },
-      { count: 50, name: 'Wielki miłośnik', description: '50 ulubionych odcinków', icon: '💝' }
-    ];
-
-    favoriteMilestones.forEach(milestone => {
-      allAchievements.push({
-        id: `favorites_${milestone.count}`,
-        name: milestone.name,
-        description: milestone.description,
-        icon: milestone.icon,
-        category: 'favorites',
-        unlocked: stats.favoritesCount >= milestone.count,
-        progress: Math.min(stats.favoritesCount, milestone.count),
-        target: milestone.count,
-        progressText: `${stats.favoritesCount}/${milestone.count}`
-      });
-    });
-
-    // 📚 OSIĄGNIĘCIA Z BACKENDU (zastępują statyczne TODO)
-    achievements.forEach(achievement => {
-      const progress = achievement.progress_value || 0;
-      const unlocked = achievement.completed === 1;
-      
-      let progressText = '';
-      switch (achievement.requirement_type) {
-        case 'high_speed_listening_time':
-          progressText = `${Math.round(progress / 60)}/${Math.round(achievement.requirement_value / 60)} min na 2x`;
-          break;
-        case 'perfect_completions':
-          progressText = `${progress}/${achievement.requirement_value} precyzyjnych`;
-          break;
-        case 'night_owl_sessions':
-          progressText = `${progress}/${achievement.requirement_value} nocy`;
-          break;
-        case 'early_bird_sessions':
-          progressText = `${progress}/${achievement.requirement_value} poranków`;
-          break;
-        case 'current_streak':
-          progressText = `${progress}/${achievement.requirement_value} dni z rzędu`;
-          break;
-        case 'daily_episodes_count':
-          progressText = `${progress}/${achievement.requirement_value} w jednym dniu`;
-          break;
-        default:
-          progressText = `${progress}/${achievement.requirement_value}`;
-      }
-
-      allAchievements.push({
-        id: achievement.id,
-        name: achievement.name,
-        description: achievement.description,
-        icon: achievement.icon,
-        category: achievement.category,
-        unlocked: unlocked,
-        progress: progress,
-        target: achievement.requirement_value,
-        progressText: progressText,
-        earnedAt: achievement.earned_at
-      });
-    });
-
-    // Rozdziel na odblokowane i zablokowane
-    const unlocked = allAchievements.filter(a => a.unlocked);
-    const locked = allAchievements.filter(a => !a.unlocked);
-
-    // Znajdź najbliższy cel
-    const nextGoal = locked
-      .filter(a => a.category !== 'special') // Pomiń specjalne na razie
-      .sort((a, b) => (a.target - a.progress) - (b.target - b.progress))[0];
-
-    return { unlocked, locked, achievements: allAchievements, nextGoal };
+    return `Dni: ${days}, ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getMotivationalMessage = () => {
-    const { nextGoal, unlocked } = getAllAchievements();
-    
-    if (!nextGoal) {
-      return "🎉 Gratulacje! Odblokowane wszystkie podstawowe osiągnięcia!";
-    }
-
-    const remaining = nextGoal.target - nextGoal.progress;
-    const category = nextGoal.category;
-
-    if (category === 'episodes') {
-      if (remaining === 1) {
-        return `🎯 Jeszcze jeden odcinek do osiągnięcia "${nextGoal.name}"!`;
-      }
-      return `🎯 Jeszcze ${remaining} odcinków do osiągnięcia "${nextGoal.name}"!`;
-    } else if (category === 'time') {
-      const remainingHours = Math.ceil(remaining);
-      if (remainingHours === 1) {
-        return `⏰ Jeszcze około godziny słuchania do osiągnięcia "${nextGoal.name}"!`;
-      }
-      return `⏰ Jeszcze około ${remainingHours} godzin słuchania do osiągnięcia "${nextGoal.name}"!`;
-    } else if (category === 'favorites') {
-      if (remaining === 1) {
-        return `❤️ Dodaj jeszcze jeden odcinek do ulubionych dla "${nextGoal.name}"!`;
-      }
-      return `❤️ Dodaj jeszcze ${remaining} odcinków do ulubionych dla "${nextGoal.name}"!`;
-    }
-
-    return `🚀 Dalej tak trzymaj! Następny cel: ${nextGoal.name}`;
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Brak';
+    return new Date(dateString).toLocaleDateString('pl-PL');
   };
 
   if (loading) {
@@ -252,459 +67,264 @@ const getAllAchievements = () => {
     );
   }
 
-
   return (
     <Layout>
       <div className="max-w-6xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-8 text-light-text dark:text-white">
-          Twoje statystyki
+        <h1 className="text-3xl font-bold text-light-text dark:text-white mb-8">
+          Statystyki
         </h1>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8" data-testid="stats-tabs">
+        <div className="flex space-x-1 mb-8 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'overview'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-white dark:bg-gray-700 text-primary dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
             Przegląd
           </button>
           <button
             onClick={() => setActiveTab('series')}
-            className={`px-4 py-2 font-medium transition-colors ${
+            className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
               activeTab === 'series'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                ? 'bg-white dark:bg-gray-700 text-primary dark:text-blue-400 shadow-sm'
+                : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            Serie
-          </button>
-          <button
-            onClick={() => setActiveTab('patterns')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'patterns'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Wzorce słuchania
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'history'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Historia
-          </button>
-          <button
-  onClick={() => setActiveTab('achievements')}
-  className={`px-4 py-2 font-medium transition-colors ${
-    activeTab === 'achievements'
-      ? 'text-primary border-b-2 border-primary'
-      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-  }`}
->
-  Osiągnięcia ({getAllAchievements().unlocked?.length || 0}/{getAllAchievements().achievements?.length || 0})
-</button>
-          <button
-            onClick={() => setActiveTab('ratings')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'ratings'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            Oceny ({topRatedEpisodes?.length || 0})
+            Według serii
           </button>
         </div>
 
-        {/* Przegląd */}
-        {activeTab === 'overview' && stats && (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" data-testid="overview-stats">
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <div className="text-4xl mb-2">🎧</div>
-                <h3 className="text-lg font-semibold mb-1">Całkowity czas</h3>
-                <p className="text-2xl font-bold text-primary">{formatTime(stats.totalListeningTime)}</p>
-              </div>
-              
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <div className="text-4xl mb-2">✅</div>
-                <h3 className="text-lg font-semibold mb-1">Ukończone</h3>
-                <p className="text-2xl font-bold text-green-500">{stats.completedCount}</p>
-                <p className="text-sm text-gray-500">odcinków</p>
-              </div>
-              
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <div className="text-4xl mb-2">▶️</div>
-                <h3 className="text-lg font-semibold mb-1">W trakcie</h3>
-                <p className="text-2xl font-bold text-yellow-500">{stats.inProgressCount}</p>
-                <p className="text-sm text-gray-500">odcinków</p>
-              </div>
-              
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <div className="text-4xl mb-2">❤️</div>
-                <h3 className="text-lg font-semibold mb-1">Ulubione</h3>
-                <p className="text-2xl font-bold text-red-500">{stats.favoritesCount}</p>
-                <p className="text-sm text-gray-500">odcinków</p>
-              </div>
-            </div>
-            
-            {/* Informacja o ocenionych odcinkach */}
-            {topRatedEpisodes && topRatedEpisodes.length > 0 && (
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg mt-6`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">⭐</div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-light-text dark:text-white">
-                        Masz {topRatedEpisodes?.length || 0} ocenionych odcinków
-                      </h3>
-                      <p className="text-sm text-light-textSecondary dark:text-gray-400">
-                        Zobacz swoje najwyżej ocenione odcinki w tabie "Oceny"
-                      </p>
-                    </div>
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Główne statystyki */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+                <div className="flex items-center">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg className="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
-                  <button
-                    onClick={() => setActiveTab('ratings')}
-                    className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
-                  >
-                    Zobacz oceny
-                  </button>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Całkowity czas</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {formatTime(stats?.totalListeningTime || 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
-          </>
-        )}
 
-        {/* Statystyki według serii */}
-        {activeTab === 'series' && seriesStats && (
-          <div className="space-y-6" data-testid="series-stats">
-            {seriesStats.map((series) => (
-              <div key={series.id} className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold">{series.name}</h3>
-                  <span className="text-sm text-gray-500">
-                    {series.completedCount}/{series.totalCount} ukończonych
-                  </span>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                    <div 
-                      className="h-3 rounded-full transition-all duration-500"
-                      style={{ 
-                        width: `${(series.completedCount / series.totalCount) * 100}%`,
-                        backgroundColor: series.color || '#3B82F6'
-                      }}
-                    />
+              <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+                <div className="flex items-center">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg className="w-6 h-6 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    {Math.round((series.completedCount / series.totalCount) * 100)}% ukończone
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Czas słuchania:</span>
-                    <span className="ml-2 font-medium">{formatTime(series.totalTime || 0)}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Ostatnio:</span>
-                    <span className="ml-2 font-medium">
-                      {series.lastPlayed ? new Date(series.lastPlayed).toLocaleDateString('pl-PL') : 'Nigdy'}
-                    </span>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Ukończone</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {stats?.completedCount || 0}
+                    </p>
                   </div>
                 </div>
               </div>
-            ))}
-            
-            {seriesStats.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-light-textSecondary dark:text-gray-400">
-                  Brak danych o seriach
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Wzorce słuchania */}
-        {activeTab === 'patterns' && (
-          <div className="space-y-6" data-testid="listening-patterns">
-            <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-              <h3 className="text-xl font-semibold mb-4">Twoje nawyki słuchania</h3>
-              
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Średni czas słuchania dziennie</p>
-                  <p className="text-2xl font-bold">
-                    {stats.averageDailyListening ? formatTime(Math.round(stats.averageDailyListening)) : '0 min'}
-                  </p>
+              <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+                <div className="flex items-center">
+                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">W trakcie</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {stats?.inProgressCount || 0}
+                    </p>
+                  </div>
                 </div>
-                
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Preferowana prędkość</p>
-                  <p className="text-2xl font-bold">{stats.preferredSpeed || '1.0'}x</p>
-                </div>
-                
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Średnia długość sesji</p>
-                  <p className="text-2xl font-bold">
-                    {stats.averageSessionLength ? formatTime(Math.round(stats.averageSessionLength)) : '0 min'}
-                  </p>
+              </div>
+
+              <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+                <div className="flex items-center">
+                  <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
+                    <svg className="w-6 h-6 text-red-600 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Ulubione</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {stats?.favoritesCount || 0}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Osiągnięcia */}
-        {activeTab === 'achievements' && (
-          <div className="space-y-6" data-testid="achievements">
-            {/* Motywacyjny komunikat */}
-            <div className={`${isDarkMode ? 'bg-primary/10 border-primary/20' : 'bg-primary/5 border-primary/20'} rounded-xl p-6 border-2`}>
-              <div className="text-center">
-                <h3 className="text-xl font-bold text-primary mb-2">
-                  {getMotivationalMessage()}
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Odblokowanych osiągnięć: {getAllAchievements().unlocked.length}/{getAllAchievements().achievements.length}
-                </p>
-              </div>
-            </div>
-
-            {/* Postęp do najbliższego celu */}
-            {getAllAchievements().nextGoal && (
-              <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-                <h3 className="text-lg font-semibold mb-4 text-primary">🎯 Najbliższy cel</h3>
-                <div className="flex items-center gap-4">
-                  <div className="text-4xl">{getAllAchievements().nextGoal.icon}</div>
-                  <div className="flex-1">
-                    <h4 className="font-semibold">{getAllAchievements().nextGoal.name}</h4>
-                    <p className="text-sm text-gray-500 mb-2">{getAllAchievements().nextGoal.description}</p>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                      <div 
-                        className="h-3 bg-primary rounded-full transition-all duration-500"
-                        style={{ 
-                          width: `${(getAllAchievements().nextGoal.progress / getAllAchievements().nextGoal.target) * 100}%` 
-                        }}
-                      />
+            {/* Szczegółowe statystyki */}
+            <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Szczegółowe statystyki
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                    Postęp słuchania
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Ukończone odcinki</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {stats?.completedCount || 0}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{getAllAchievements().nextGoal.progressText}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Odcinki w trakcie</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {stats?.inProgressCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Całkowity czas słuchania</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {formatTime(stats?.totalListeningTime || 0)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
+                    Aktywność
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Ulubione odcinki</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {stats?.favoritesCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">Średni czas na odcinek</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {stats?.completedCount > 0 
+                          ? formatTime(Math.round(stats.totalListeningTime / stats.completedCount))
+                          : '0 min'
+                        }
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Odblokowane osiągnięcia */}
-            {getAllAchievements().unlocked.length > 0 && (
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-green-600">
-                  🏆 Odblokowane osiągnięcia ({getAllAchievements().unlocked.length})
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getAllAchievements().unlocked.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg border-2 border-green-200 dark:border-green-800`}
-                    >
-                      <div className="text-4xl mb-3">{achievement.icon}</div>
-                      <h3 className="font-semibold mb-1 text-green-600">{achievement.name}</h3>
-                      <p className="text-sm text-gray-500">{achievement.description}</p>
-                      <div className="mt-2">
-                        <div className="w-full bg-green-200 dark:bg-green-800 rounded-full h-2">
-                          <div className="h-2 bg-green-500 rounded-full w-full"></div>
-                        </div>
-                        <p className="text-xs text-green-600 mt-1">✅ Ukończone!</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Zablokowane osiągnięcia - grupowane po kategoriach */}
-            {getAllAchievements().locked.length > 0 && (
-              <div>
-                <h3 className="text-xl font-semibold mb-4 text-gray-600">
-                  🔒 Do odblokowania ({getAllAchievements().locked.length})
-                </h3>
-                
-                {/* Grupa po kategoriach */}
-                {['episodes', 'time', 'favorites', 'special'].map(category => {
-                  const categoryAchievements = getAllAchievements().locked.filter(a => a.category === category);
-                  if (categoryAchievements.length === 0) return null;
-                  
-                  const categoryNames = {
-                    episodes: '🎧 Za odcinki',
-                    time: '⏰ Za czas słuchania', 
-                    favorites: '❤️ Za ulubione',
-                    special: '⭐ Specjalne'
-                  };
-                  
-                  return (
-                    <div key={category} className="mb-6">
-                      <h4 className="text-lg font-medium mb-3 text-gray-700 dark:text-gray-300">
-                        {categoryNames[category]}
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {categoryAchievements.map((achievement) => (
-                          <div
-                            key={achievement.id}
-                            className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg opacity-75`}
-                          >
-                            <div className="text-4xl mb-3 grayscale">{achievement.icon}</div>
-                            <h3 className="font-semibold mb-1">{achievement.name}</h3>
-                            <p className="text-sm text-gray-500">{achievement.description}</p>
-                            {achievement.category !== 'special' && (
-                              <div className="mt-2">
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                  <div 
-                                    className="h-2 bg-gray-400 rounded-full transition-all duration-500"
-                                    style={{ 
-                                      width: `${(achievement.progress / achievement.target) * 100}%` 
-                                    }}
-                                  />
-                                </div>
-                                <p className="text-xs text-gray-500 mt-1">{achievement.progressText}</p>
-                              </div>
-                            )}
-                            {achievement.category === 'special' && (
-                              <div className="mt-2">
-                                <p className="text-xs text-gray-500">🔜 Wkrótce dostępne</p>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Legenda */}
-            <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-              <h3 className="text-lg font-semibold mb-4">📋 Legenda osiągnięć</h3>
-              <div className="grid md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <h4 className="font-medium mb-2 text-primary">🎧 Za odcinki</h4>
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    <li>• 1, 10, 25, 50, 100 ukończonych odcinków</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2 text-primary">⏰ Za czas słuchania</h4>
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    <li>• 10, 50, 100, 200, 500 godzin</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2 text-primary">❤️ Za ulubione</h4>
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    <li>• 1, 10, 25, 50 ulubionych odcinków</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2 text-primary">⭐ Specjalne</h4>
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    <li>• Maraton (7 dni z rzędu)</li>
-                    <li>• Słuchacz dnia (5 odcinków/dzień)</li>
-                    <li>• Nocny marynarz & Ranny ptaszek</li>
-                    <li>• Szybki jak błyskawica (2x speed)</li>
-                    <li>• Precyzyjny słuchacz (95%+ ukończenie)</li>
-                  </ul>
-                </div>
-              </div>
             </div>
-          </div>
-        )}
-        {/* Historia */}
-        {activeTab === 'history' && (
-          <div data-testid="listening-history">
-            <HistorySection />
-          </div>
-        )}
 
-        {/* Oceny */}
-        {activeTab === 'ratings' && (
-          <div className="space-y-6" data-testid="user-ratings">
-            <h2 className="text-2xl font-bold text-light-text dark:text-white mb-6">
-              Twoje oceny odcinków
-            </h2>
-            <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
-              {topRatedEpisodes && topRatedEpisodes.length > 0 ? (
+            {/* Lista ukończonych odcinków */}
+            <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Ukończone odcinki
+              </h2>
+              {stats?.completedEpisodes && stats.completedEpisodes.length > 0 ? (
                 <div className="space-y-4">
-                  {topRatedEpisodes.map((episode, index) => (
-                    <div
-                      key={episode.id}
-                      className={`${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-lg p-4 hover:shadow-md transition-shadow`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-lg font-bold text-primary">#{index + 1}</span>
-                            <h4 className="font-semibold text-light-text dark:text-white">
-                              {episode.title}
-                            </h4>
-                          </div>
-                          <p className="text-sm text-light-textSecondary dark:text-gray-400 mb-2">
-                            {episode.series_name} • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                  {stats.completedEpisodes.map((episode) => (
+                    <div key={episode.id} className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 rounded-full mr-3" style={{ backgroundColor: episode.series_color || '#3B82F6' }}></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{episode.title}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300">
+                            {episode.series_name} • {formatDate(episode.start_time)}
                           </p>
-                          <div className="flex items-center gap-4">
-                            <StarRating
-                              rating={episode.rating}
-                              readonly={true}
-                              size="sm"
-                              showHalfStars={false}
-                            />
-                            <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                              Twoja ocena: {episode.rating}/5
-                            </span>
-                          </div>
                         </div>
-                        <div className="flex items-center gap-2 ml-4">
-                          {episode.completed ? (
-                            <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded">
-                              Ukończony
-                            </span>
-                          ) : episode.position > 0 ? (
-                            <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded">
-                              W trakcie
-                            </span>
-                          ) : (
-                            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                              Nie rozpoczęty
-                            </span>
-                          )}
-                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          {formatTime(episode.final_position || 0)}
+                        </p>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <div className="text-4xl mb-4">⭐</div>
-                  <h4 className="text-lg font-semibold mb-2">Brak ocenionych odcinków</h4>
-                  <p className="text-light-textSecondary dark:text-gray-400">
-                    Zacznij oceniać odcinki, aby zobaczyć je tutaj!
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Brak ukończonych odcinków
                   </p>
                 </div>
               )}
             </div>
           </div>
         )}
+
+        {activeTab === 'series' && (
+          <div className="space-y-6">
+            <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
+                Statystyki według serii
+              </h2>
+              
+              {seriesStats.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Brak danych o seriach
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {seriesStats.map((series) => (
+                    <div key={series.id} className="border-b border-gray-200 dark:border-gray-600 pb-4 last:border-b-0">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <div 
+                            className="w-4 h-4 rounded-full mr-3"
+                            style={{ backgroundColor: series.color || '#3B82F6' }}
+                          ></div>
+                          <h3 className="font-medium text-gray-900 dark:text-white">
+                            {series.name}
+                          </h3>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-sm text-gray-600 dark:text-gray-300">
+                            {series.completedCount} / {series.totalCount}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{ 
+                            backgroundColor: series.color || '#3B82F6',
+                            width: `${series.totalCount > 0 ? (series.completedCount / series.totalCount) * 100 : 0}%`
+                          }}
+                        ></div>
+                      </div>
+                      
+                      <div className="flex justify-between items-center mt-2 text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">
+                          Postęp: {series.totalCount > 0 ? Math.round((series.completedCount / series.totalCount) * 100) : 0}%
+                        </span>
+                        <span className="text-gray-600 dark:text-gray-300">
+                          {series.completedCount} ukończonych
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      
     </Layout>
   );
 };
 
 export default StatsPage;
+

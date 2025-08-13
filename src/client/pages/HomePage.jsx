@@ -76,10 +76,24 @@ const HomePage = () => {
     }
   }, [currentEpisode?.series_id]);
 
-  // Funkcja filtrowania odcinków według wybranej serii
+  // Funkcja filtrowania odcinków według wybranej serii i preferencji użytkownika
   const getFilteredEpisodes = (episodeList) => {
-    if (!selectedSeriesId) return episodeList;
-    return episodeList.filter(episode => episode.series_id === selectedSeriesId);
+    let filtered = episodeList;
+    
+    // Filtruj według wybranej serii (jeśli użytkownik kliknął na serię)
+    if (selectedSeriesId) {
+      filtered = filtered.filter(episode => episode.series_id === selectedSeriesId);
+    } else {
+      // Filtruj według preferencji użytkownika (jeśli nie ma wybranej serii)
+      const activeSeries = (user && user.preferences && user.preferences.activeSeries) || 'all';
+      
+      if (activeSeries !== 'all' && Array.isArray(activeSeries)) {
+        const activeSeriesIds = activeSeries.map(id => parseInt(id));
+        filtered = filtered.filter(episode => activeSeriesIds.includes(episode.series_id));
+      }
+    }
+    
+    return filtered;
   }
 
   // Funkcja sortowania odcinków
@@ -333,29 +347,38 @@ const HomePage = () => {
           await loadEpisodeDetails(lastPlayedEpisode.id)
         } else {
           console.log('Brak ostatniego odcinka, używam domyślnej logiki')
-          // Jeśli nie ma ostatniego odcinka, użyj domyślnej logiki
-          if (episodes.inProgress?.length > 0) {
-            loadEpisodeDetails(episodes.inProgress[0].id)
-          } else if (episodes.new?.length > 0) {
-            loadEpisodeDetails(episodes.new[0].id)
+          // Jeśli nie ma ostatniego odcinka, użyj domyślnej logiki z uwzględnieniem preferencji
+          const filteredInProgress = getFilteredEpisodes(episodes.inProgress || []);
+          const filteredNew = getFilteredEpisodes(episodes.new || []);
+          
+          if (filteredInProgress.length > 0) {
+            loadEpisodeDetails(filteredInProgress[0].id)
+          } else if (filteredNew.length > 0) {
+            loadEpisodeDetails(filteredNew[0].id)
           }
         }
       } else {
         console.log('Błąd pobierania ostatniego odcinka, używam domyślnej logiki')
-        // Jeśli błąd, użyj domyślnej logiki
-        if (episodes.inProgress?.length > 0) {
-          loadEpisodeDetails(episodes.inProgress[0].id)
-        } else if (episodes.new?.length > 0) {
-          loadEpisodeDetails(episodes.new[0].id)
+        // Jeśli błąd, użyj domyślnej logiki z uwzględnieniem preferencji
+        const filteredInProgress = getFilteredEpisodes(episodes.inProgress || []);
+        const filteredNew = getFilteredEpisodes(episodes.new || []);
+        
+        if (filteredInProgress.length > 0) {
+          loadEpisodeDetails(filteredInProgress[0].id)
+        } else if (filteredNew.length > 0) {
+          loadEpisodeDetails(filteredNew[0].id)
         }
       }
     } catch (error) {
       console.error('Błąd wczytywania ostatniego odcinka:', error)
-      // Jeśli błąd, użyj domyślnej logiki
-      if (episodes.inProgress?.length > 0) {
-        loadEpisodeDetails(episodes.inProgress[0].id)
-      } else if (episodes.new?.length > 0) {
-        loadEpisodeDetails(episodes.new[0].id)
+      // Jeśli błąd, użyj domyślnej logiki z uwzględnieniem preferencji
+      const filteredInProgress = getFilteredEpisodes(episodes.inProgress || []);
+      const filteredNew = getFilteredEpisodes(episodes.new || []);
+      
+      if (filteredInProgress.length > 0) {
+        loadEpisodeDetails(filteredInProgress[0].id)
+      } else if (filteredNew.length > 0) {
+        loadEpisodeDetails(filteredNew[0].id)
       }
     }
   }
@@ -363,7 +386,7 @@ const HomePage = () => {
   const loadEpisodeDetails = async (episodeId) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`/api/episodes/${episodeId}?language=${user?.preferences?.audioLanguage || 'polski'}`, {
+      const response = await fetch(`/api/episodes/${episodeId}?language=${(user && user.preferences && user.preferences.audioLanguage) || 'polski'}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
@@ -417,7 +440,7 @@ const HomePage = () => {
       })
       
       // Pobierz preferencje użytkownika
-      const autoplay = user?.preferences?.autoPlay || user?.preferences?.autoplay || false;
+      const autoplay = (user && user.preferences && (user.preferences.autoPlay || user.preferences.autoplay)) || false;
       console.log('Autoplay setting:', autoplay);
       
       if (autoplay) {
@@ -436,7 +459,7 @@ const HomePage = () => {
           let nextEpisode = null;
           
           // Pobierz serie według preferencji użytkownika
-          const activeSeries = user?.preferences?.activeSeries || 'all';
+          const activeSeries = (user && user.preferences && user.preferences.activeSeries) || 'all';
           console.log('Active series preference:', activeSeries);
           
           // Wszystkie dostępne odcinki (nowe + w trakcie) z wybranych serii
@@ -995,14 +1018,23 @@ const HomePage = () => {
           </>
         )}
              
-        {/* Twoje Serie - zawsze pokazuj jeśli są serie */}
-        {series.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-2xl font-bold text-light-text dark:text-white mb-6">
-              Twoje Serie
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {series.map((seria) => (
+        {/* Twoje Serie - pokazuj według preferencji użytkownika */}
+        {series.length > 0 && (() => {
+          const activeSeries = (user && user.preferences && user.preferences.activeSeries) || 'all';
+          let seriesToShow = series;
+          
+          if (activeSeries !== 'all' && Array.isArray(activeSeries)) {
+            const activeSeriesIds = activeSeries.map(id => parseInt(id));
+            seriesToShow = series.filter(seria => activeSeriesIds.includes(seria.id));
+          }
+          
+          return seriesToShow.length > 0 && (
+            <section className="mt-12">
+              <h2 className="text-2xl font-bold text-light-text dark:text-white mb-6">
+                {activeSeries === 'all' ? 'Twoje Serie' : 'Wybrane Serie'}
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {seriesToShow.map((seria) => (
                 <div
                   key={seria.id}
                   onClick={() => handleSeriesClick(seria.id)}
@@ -1059,7 +1091,8 @@ const HomePage = () => {
               ))}
             </div>
           </section>
-        )}
+        );
+        })()}
       </div>
     </Layout>
   )

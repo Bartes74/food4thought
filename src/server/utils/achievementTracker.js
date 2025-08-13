@@ -18,26 +18,34 @@ export const initializeUserStats = async (userId) => {
 
 // Aktualizacja statystyk użytkownika
 export const updateUserStats = async (userId, updates) => {
-  const setClause = Object.keys(updates)
-    .map(key => `${key} = ?`)
-    .join(', ');
-  
-  const values = Object.values(updates);
-  values.push(userId);
+  try {
+    const db = await getDb();
+    const setClause = Object.keys(updates)
+      .map(key => `${key} = ?`)
+      .join(', ');
+    
+    const values = Object.values(updates);
+    values.push(userId);
 
-  return new Promise((resolve, reject) => {
-    getDb().run(`
-      UPDATE user_stats 
-      SET ${setClause}, last_updated = CURRENT_TIMESTAMP
-      WHERE user_id = ?
-    `, values, function(err) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
+    return new Promise((resolve, reject) => {
+      db.run(`
+        UPDATE user_stats 
+        SET ${setClause}, last_updated = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `, values, function(err) {
+        if (err) {
+          console.error('Error updating user stats:', err);
+          reject(err);
+        } else {
+          console.log(`Updated user ${userId} stats:`, updates);
+          resolve();
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error('Error in updateUserStats:', error);
+    throw error;
+  }
 };
 
 // Zapisanie sesji słuchania
@@ -62,12 +70,14 @@ export const recordListeningSession = async (userId, episodeId, sessionData) => 
 // Sprawdzenie i przyznanie osiągnięć
 export const checkAndAwardAchievements = async (userId) => {
   try {
+    const db = await getDb();
+    
     // Pobierz aktualne statystyki użytkownika
     const stats = await getUserStats(userId);
     
     // Pobierz wszystkie osiągnięcia
     const achievements = await new Promise((resolve, reject) => {
-      getDb().all('SELECT * FROM achievements', [], (err, rows) => {
+      db.all('SELECT * FROM achievements', [], (err, rows) => {
         if (err) reject(err);
         else resolve(rows);
       });
@@ -75,7 +85,7 @@ export const checkAndAwardAchievements = async (userId) => {
 
     // Pobierz już przyznane osiągnięcia
     const earnedAchievements = await new Promise((resolve, reject) => {
-      getDb().all('SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1', [userId], (err, rows) => {
+      db.all('SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1', [userId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows.map(row => row.achievement_id));
       });
@@ -131,7 +141,7 @@ export const checkAndAwardAchievements = async (userId) => {
       if (completed) {
         // Przyznaj osiągnięcie
         await new Promise((resolve, reject) => {
-          getDb().run(`
+          db.run(`
             INSERT OR REPLACE INTO user_achievements 
             (user_id, achievement_id, earned_at, progress_value, completed)
             VALUES (?, ?, CURRENT_TIMESTAMP, ?, 1)
@@ -145,7 +155,7 @@ export const checkAndAwardAchievements = async (userId) => {
       } else {
         // Zaktualizuj postęp
         await new Promise((resolve, reject) => {
-          getDb().run(`
+          db.run(`
             INSERT OR REPLACE INTO user_achievements 
             (user_id, achievement_id, progress_value, completed)
             VALUES (?, ?, ?, 0)
@@ -214,18 +224,20 @@ export const getUserAchievements = (userId) => {
 };
 
 // Pobranie statystyk użytkownika
-export const getUserStats = (userId) => {
-  return new Promise((resolve, reject) => {
-    getDb().get(`
-      SELECT 
-        us.*,
-        (SELECT COUNT(*) FROM user_achievements ua WHERE ua.user_id = ? AND ua.completed = 1) as total_achievements,
-        (SELECT COALESCE(SUM(a.points), 0) FROM user_achievements ua 
-         JOIN achievements a ON ua.achievement_id = a.id 
-         WHERE ua.user_id = ? AND ua.completed = 1) as total_points
-      FROM user_stats us 
-      WHERE user_id = ?
-    `, [userId, userId, userId], (err, row) => {
+export const getUserStats = async (userId) => {
+  try {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+      db.get(`
+        SELECT 
+          us.*,
+          (SELECT COUNT(*) FROM user_achievements ua WHERE ua.user_id = ? AND ua.completed = 1) as total_achievements,
+          (SELECT COALESCE(SUM(a.points), 0) FROM user_achievements ua 
+           JOIN achievements a ON ua.achievement_id = a.id 
+           WHERE ua.user_id = ? AND ua.completed = 1) as total_points
+        FROM user_stats us 
+        WHERE user_id = ?
+      `, [userId, userId, userId], (err, row) => {
       if (err) {
         console.error('Error fetching user stats:', err);
         reject(err);
@@ -235,8 +247,6 @@ export const getUserStats = (userId) => {
           user_id: userId,
           total_listening_time: 0,
           total_episodes_completed: 0,
-          total_episodes_started: 0,
-          total_episodes_abandoned: 0,
           current_streak: 0,
           longest_streak: 0,
           last_listening_date: null,
@@ -252,8 +262,7 @@ export const getUserStats = (userId) => {
         
         // Ensure numeric fields are numbers
         const numericFields = [
-          'total_listening_time', 'total_episodes_completed', 'total_episodes_started',
-          'total_episodes_abandoned', 'current_streak', 'longest_streak',
+          'total_listening_time', 'total_episodes_completed', 'current_streak', 'longest_streak',
           'total_achievements', 'total_points', 'average_completion_rate'
         ];
         
@@ -265,4 +274,8 @@ export const getUserStats = (userId) => {
       }
     });
   });
+  } catch (error) {
+    console.error('Error in getUserStats:', error);
+    throw error;
+  }
 }; 

@@ -200,7 +200,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
     const user = await db.get(
-      'SELECT id, email, role, email_verified FROM users WHERE id = ?',
+      'SELECT id, email, role, email_verified, preferences FROM users WHERE id = ?',
       [req.user.id]
     );
     
@@ -208,7 +208,28 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
     }
     
-    res.json({ user });
+    // Parsuj preferencje z JSON
+    let preferences = {};
+    if (user.preferences) {
+      try {
+        const parsedPrefs = JSON.parse(user.preferences);
+        // Sprawdź czy preferencje nie są zagnieżdżone
+        preferences = parsedPrefs.preferences || parsedPrefs;
+      } catch (e) {
+        console.error('Error parsing user preferences:', e);
+        preferences = {};
+      }
+    }
+    
+    res.json({ 
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        email_verified: user.email_verified,
+        preferences: preferences
+      }
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
