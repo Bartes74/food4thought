@@ -53,8 +53,9 @@ const UserProfile = () => {
         audioLanguage: userPrefs.audioLanguage || 'polski',
         activeSeries: userPrefs.activeSeries || 'all',
         playbackSpeed: userPrefs.playbackSpeed || 1,
-        autoPlay: userPrefs.autoPlay !== false,
-        showCompletedEpisodes: userPrefs.showCompletedEpisodes !== false
+        // autoplay i showCompletedEpisodes przeniesione poza profil
+        autoPlay: true,
+        showCompletedEpisodes: true
       });
       
       // Ustaw wybrane serie
@@ -193,7 +194,7 @@ const UserProfile = () => {
           </div>
         </div>
 
-        {/* Preferencje odtwarzania */}
+        {/* Preferencje odtwarzania – pozostawiono tylko prędkość; autoplay i pokazuj ukończone usunięto */}
         <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 mb-6 shadow-lg`}>
           <h2 className="text-xl font-semibold text-light-text dark:text-white mb-4">
             Preferencje odtwarzania
@@ -219,38 +220,6 @@ const UserProfile = () => {
                 <option value="1.5">1.5x</option>
                 <option value="2">2x</option>
               </select>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-light-text dark:text-gray-300">
-                Automatyczne odtwarzanie następnego odcinka
-              </span>
-              <button
-                onClick={() => setPreferences({ ...preferences, autoPlay: !preferences.autoPlay })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  preferences.autoPlay ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  preferences.autoPlay ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <span className="text-light-text dark:text-gray-300">
-                Pokazuj ukończone odcinki
-              </span>
-              <button
-                onClick={() => setPreferences({ ...preferences, showCompletedEpisodes: !preferences.showCompletedEpisodes })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  preferences.showCompletedEpisodes ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
-                }`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  preferences.showCompletedEpisodes ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
             </div>
           </div>
         </div>

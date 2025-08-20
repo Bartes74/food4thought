@@ -36,15 +36,64 @@ export const LanguageProvider = ({ children }) => {
     document.documentElement.lang = language;
   }, [language]);
 
+  // Mapowanie kodu języka na locale do formatowania dat/liczb
+  const languageToLocale = { pl: 'pl-PL', en: 'en-US', fr: 'fr-FR' };
+
   const t = (key) => {
     const keys = key.split('.');
-    let value = translations[language];
-    
-    for (const k of keys) {
-      value = value?.[k];
+
+    const resolve = (lang) => {
+      let node = translations[lang];
+      for (const k of keys) {
+        node = node?.[k];
+        if (node === undefined || node === null) return undefined;
+      }
+      return node;
+    };
+
+    // Try current language
+    let value = resolve(language);
+    if (value !== undefined) return value;
+
+    // Fallback chain: pl -> en -> fr (excluding current if same)
+    const fallbackOrder = ['pl', 'en', 'fr'].filter((l) => l !== language);
+    for (const lang of fallbackOrder) {
+      value = resolve(lang);
+      if (value !== undefined) {
+        if (process.env.NODE_ENV !== 'production') {
+          try { console.warn(`[i18n] Missing key for '${language}': ${key}. Using fallback '${lang}'.`); } catch {}
+        }
+        return value;
+      }
     }
-    
-    return value || key;
+
+    if (process.env.NODE_ENV !== 'production') {
+      try { console.warn(`[i18n] Missing translation key in all languages: ${key}`); } catch {}
+    }
+    // Last resort: return empty string to avoid showing raw keys in UI
+    return '';
+  };
+
+  // Helper do formatowania dat zgodnie z wybranym językiem
+  const formatDate = (dateLike) => {
+    try {
+      const locale = languageToLocale[language] || 'pl-PL';
+      const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleDateString(locale);
+    } catch {
+      return '';
+    }
+  };
+
+  // Helper do formatowania liczb zgodnie z wybranym językiem
+  const formatNumber = (value, options) => {
+    try {
+      const locale = languageToLocale[language] || 'pl-PL';
+      return new Intl.NumberFormat(locale, options).format(value);
+    } catch {
+      return String(value ?? '');
+    }
   };
 
   const changeLanguage = (newLang) => {
@@ -54,7 +103,7 @@ export const LanguageProvider = ({ children }) => {
   };
 
   return (
-    <LanguageContext.Provider value={{ language, changeLanguage, t }}>
+    <LanguageContext.Provider value={{ language, changeLanguage, t, formatDate, formatNumber }}>
       {children}
     </LanguageContext.Provider>
   );

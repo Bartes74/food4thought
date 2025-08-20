@@ -269,6 +269,7 @@ async function initDatabase(db) {
         total_listening_seconds INTEGER DEFAULT 0,
         episodes_completed INTEGER DEFAULT 0,
         achievements_earned INTEGER DEFAULT 0,
+        avg_completion REAL DEFAULT 0,
         last_active DATETIME,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -295,6 +296,16 @@ async function initDatabase(db) {
       await db.run('CREATE INDEX IF NOT EXISTS idx_listening_sessions_created_at ON listening_sessions(created_at)');
     } catch (error) {
       console.log('Kolumna created_at już istnieje w listening_sessions lub indeks już istnieje');
+    }
+
+    // Dodaj kolumnę avg_completion do user_stats jeśli nie istnieje
+    try {
+      await db.run(`
+        ALTER TABLE user_stats 
+        ADD COLUMN avg_completion REAL DEFAULT 0
+      `);
+    } catch (error) {
+      console.log('Kolumna avg_completion już istnieje w user_stats');
     }
     
     console.log('✅ Database schema initialized successfully');

@@ -60,8 +60,8 @@ npm run test:integration
 - ✅ **Użytkownicy** - CRUD operations, role management
 - ✅ **Serie** - zarządzanie seriami podcastów
 - ✅ **Odcinki** - zarządzanie odcinkami, postęp, ulubione
-- ✅ **Statystyki** - obliczanie statystyk użytkowników
-- ✅ **Osiągnięcia** - system osiągnięć i postęp
+- ✅ **Statystyki** - obliczanie statystyk użytkowników (w tym `seriesStats` w `/api/users/:id/stats`)
+- ✅ **Osiągnięcia** - system osiągnięć i postęp (pola `progress_value`, `completed` w `/api/achievements`)
 - ✅ **Powiadomienia** - system powiadomień administratorów
 
 ### Frontend (UI)
@@ -77,19 +77,46 @@ npm run test:integration
 - ✅ **Przeglądanie statystyk**
 - ✅ **System osiągnięć**
 - ✅ **Panel administratora**
+- ✅ **Powiadomienia o następnym odcinku**
+- ✅ **Zarządzanie sesją użytkownika**
 
 ## 🎯 Testowane funkcjonalności
+
+Uwaga: funkcja automatycznego odtwarzania została usunięta. Odpowiednie testy E2E zostały zaktualizowane lub usunięte.
+
+### AudioUrl w odcinkach
+```javascript
+// Test audioUrl w odcinkach
+describe('Episode AudioUrl', () => {
+  test('should include audioUrl in episode details', async () => {
+    // Test obecności audioUrl
+  });
+  
+  test('should have correct audioUrl format', async () => {
+    // Test formatu audioUrl
+  });
+});
+```
+
+### Średnia dokładność ukończenia
+```javascript
+// Test avg_completion
+describe('Average Completion Rate', () => {
+  test('should calculate completion rate correctly', async () => {
+    // Test obliczania średniej dokładności
+  });
+  
+  test('should update with new sessions', async () => {
+    // Test aktualizacji z nowymi sesjami
+  });
+});
 
 ### System osiągnięć
 ```javascript
 // Test sprawdzania osiągnięć
 describe('Achievement System', () => {
-  test('should award "First Steps" achievement', async () => {
-    // Test logiki przyznawania osiągnięć
-  });
-  
-  test('should track progress correctly', async () => {
-    // Test śledzenia postępu
+  test('should award achievements and expose progress', async () => {
+    // Test przyznawania i progresu przez /api/achievements
   });
 });
 ```
@@ -98,12 +125,8 @@ describe('Achievement System', () => {
 ```javascript
 // Test obliczania statystyk
 describe('User Statistics', () => {
-  test('should calculate total listening time', async () => {
-    // Test obliczania czasu słuchania
-  });
-  
-  test('should count completed episodes', async () => {
-    // Test liczenia ukończonych odcinków
+  test('should include seriesStats in /api/users/:id/stats', async () => {
+    // Test obecności seriesStats
   });
 });
 ```
@@ -147,7 +170,7 @@ module.exports = {
 module.exports = {
   testDir: './src/client/__tests__/e2e',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
   },
   projects: [

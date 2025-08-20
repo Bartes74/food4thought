@@ -325,4 +325,96 @@ describe('Episodes Integration Tests', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('GET /api/episodes/next/:id', () => {
+    it('should return next episode for automatic playback', async () => {
+      const response = await request(app)
+        .get('/api/episodes/next/1')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('nextEpisode');
+      expect(response.body).toHaveProperty('message');
+      
+      if (response.body.nextEpisode) {
+        expect(response.body.nextEpisode).toHaveProperty('id');
+        expect(response.body.nextEpisode).toHaveProperty('title');
+        expect(response.body.nextEpisode).toHaveProperty('series_name');
+        expect(response.body.nextEpisode).toHaveProperty('audioUrl');
+      }
+    });
+
+    it('should return null when no more episodes available', async () => {
+      // Test z nieistniejącym odcinkiem - powinien zwrócić 404
+      const response = await request(app)
+        .get('/api/episodes/next/99999')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app)
+        .get('/api/episodes/next/1');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 404 for non-existent current episode', async () => {
+      const response = await request(app)
+        .get('/api/episodes/next/99999')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('Episode audioUrl', () => {
+    it('should include audioUrl in episode details', async () => {
+      const response = await request(app)
+        .get('/api/episodes/1')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('audioUrl');
+      expect(response.body.audioUrl).toMatch(/^\/audio\/seria\d+\/polski\/.+\.mp3$/);
+    });
+
+    it('should include audioUrl in user episodes', async () => {
+      const response = await request(app)
+        .get('/api/episodes/my')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      
+      const allEpisodes = [
+        ...response.body.new,
+        ...response.body.inProgress,
+        ...response.body.completed
+      ];
+      
+      if (allEpisodes.length > 0) {
+        const episode = allEpisodes[0];
+        expect(episode).toHaveProperty('audioUrl');
+        expect(episode.audioUrl).toMatch(/^\/audio\/seria\d+\/polski\/.+\.mp3$/);
+      }
+    });
+
+    it('should include audioUrl in favorites', async () => {
+      const response = await request(app)
+        .get('/api/episodes/favorites')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      
+      if (response.body.length > 0) {
+        const episode = response.body[0];
+        expect(episode).toHaveProperty('audioUrl');
+        expect(episode.audioUrl).toMatch(/^\/audio\/seria\d+\/polski\/.+\.mp3$/);
+      }
+    });
+  });
 }); 

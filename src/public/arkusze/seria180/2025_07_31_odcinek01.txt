@@ -1,0 +1,32 @@
+[00:00] # Świt Agentów AI
+- https://example.com/link1
+- https://example.com/link2
+- https://example.com/link3
+- https://example.com/link4
+- https://example.com/link5
+
+[00:37] # Sojusze kontra "Murowane ogrody"
+- https://example.com/link6
+- https://example.com/link7
+- https://example.com/link8
+- https://example.com/link9
+- https://example.com/link10
+
+[01:10] # Hiperpersonalizacja
+- https://example.com/link11
+- https://example.com/link12
+- https://example.com/link13
+
+[01:52] # Ład korporacyjny
+- https://example.com/link14
+- https://example.com/link15
+- https://example.com/link16
+- https://example.com/link17
+- https://example.com/link18
+- https://example.com/link19
+- https://example.com/link20
+
+[02:23] # Paradoks produktywności
+- https://example.com/link11
+- https://example.com/link12
+- https://example.com/link13

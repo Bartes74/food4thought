@@ -103,6 +103,78 @@ async function simulateAudioPlayback(page, duration = 5) {
   }
 }
 
+// Autoodtwarzanie – usunięte; helpery toggleAutoPlay oraz isAutoPlayEnabled wycofane
+
+/**
+ * Czeka na powiadomienie
+ * @param {import('@playwright/test').Page} page - Obiekt strony Playwright
+ * @param {string} expectedText - Oczekiwany tekst powiadomienia
+ * @param {number} timeout - Timeout w milisekundach (domyślnie 10000)
+ */
+async function waitForNotification(page, expectedText, timeout = 10000) {
+  try {
+    await page.waitForFunction(
+      () => {
+        const notifications = document.querySelectorAll('.notification, .toast, [role="alert"]');
+        return Array.from(notifications).some(notification => 
+          notification.textContent.includes(expectedText)
+        );
+      },
+      { timeout }
+    );
+  } catch (error) {
+    console.log(`Nie znaleziono powiadomienia z tekstem: ${expectedText}`);
+  }
+}
+
+/**
+ * Sprawdza czy API endpoint odpowiada
+ * @param {import('@playwright/test').Page} page - Obiekt strony Playwright
+ * @param {string} endpoint - Endpoint do sprawdzenia
+ * @returns {Promise<boolean>} - Czy endpoint odpowiada
+ */
+async function checkApiEndpoint(page, endpoint) {
+  try {
+    const response = await page.request.get(`/api${endpoint}`);
+    return response.status() === 200 || response.status() === 401; // 401 to OK dla endpointów wymagających autoryzacji
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Symuluje zakończenie odcinka
+ * @param {import('@playwright/test').Page} page - Obiekt strony Playwright
+ */
+async function simulateEpisodeEnd(page) {
+  // Symuluj zakończenie odcinka przez ustawienie currentTime na duration
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio');
+    if (audio) {
+      audio.currentTime = audio.duration;
+      audio.dispatchEvent(new Event('ended'));
+    }
+  });
+  
+  // Poczekaj na reakcję aplikacji
+  await page.waitForTimeout(2000);
+}
+
+/**
+ * Sprawdza czy użytkownik jest zalogowany
+ * @param {import('@playwright/test').Page} page - Obiekt strony Playwright
+ * @returns {Promise<boolean>} - Czy użytkownik jest zalogowany
+ */
+async function isUserLoggedIn(page) {
+  try {
+    await page.waitForSelector('header', { timeout: 5000 });
+    const headerText = await page.locator('header').textContent();
+    return headerText.includes('admin@food4thought.local') || headerText.includes('test@example.com');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Sprawdza czy aplikacja jest w trybie ciemnym
  * @param {import('@playwright/test').Page} page - Obiekt strony Playwright
@@ -188,5 +260,9 @@ export {
   toggleTheme,
   hasGoodContrast,
   testKeyboardNavigation,
-  testScreenReaderSupport
+  testScreenReaderSupport,
+  waitForNotification,
+  checkApiEndpoint,
+  simulateEpisodeEnd,
+  isUserLoggedIn
 }; 

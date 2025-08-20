@@ -8,7 +8,7 @@ import axios from 'axios';
 const AchievementsPage = () => {
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
-  const { t } = useLanguage();
+  const { t, language, formatDate } = useLanguage();
   const [achievements, setAchievements] = useState([]);
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -28,11 +28,11 @@ const AchievementsPage = () => {
     } catch (error) {
       console.error('Błąd podczas pobierania osiągnięć:', error);
       if (error.response?.status === 401) {
-        setError('Sesja wygasła. Zaloguj się ponownie.');
+        setError(t('errors.sessionExpired'));
       } else if (error.response?.status === 403) {
-        setError('Brak uprawnień do wyświetlenia osiągnięć.');
+        setError(t('errors.forbidden'));
       } else {
-        setError('Błąd serwera podczas pobierania osiągnięć.');
+        setError(t('errors.serverError'));
       }
     } finally {
       setLoading(false);
@@ -61,40 +61,24 @@ const AchievementsPage = () => {
     return groups;
   };
 
-  const getCategoryName = (category) => {
-    const names = {
-      'speed': '⚡ Prędkość',
-      'playback_speed': '🚀 Prędkość odtwarzania',
-      'precision': '🎯 Dokładność',
-      'patterns': '🕐 Wzorce czasowe',
-      'time_patterns': '🌙 Wzorce czasowe',
-      'streak': '🔥 Serie',
-      'streaks': '💪 Wytrwałość',
-      'daily': '📅 Codzienność',
-      'daily_activity': '🏃 Aktywność dzienna',
-      'general': '🏆 Ogólne'
-    };
-    return names[category] || category;
+  const getCategoryLabel = (category) => {
+    // Prefer tłumaczenie; w razie braku pokaż nazwę kategorii
+    const translated = t(`achievements.categories.${category}`);
+    return translated || category;
   };
 
   const getRequirementDescription = (achievement) => {
     const { requirement_type, requirement_value } = achievement;
-    
-    const descriptions = {
-      'episodes_completed': `Ukończ ${requirement_value} odcinków`,
-      'perfect_completion': `Ukończ odcinek z 95%+ dokładnością`,
-      'perfect_completions': `Ukończ ${requirement_value} odcinków z 95%+ dokładnością`,
-      'high_speed_time': `Słuchaj przez ${formatTime(requirement_value)} z prędkością 2x`,
-      'high_speed_listening_time': `Słuchaj przez ${formatTime(requirement_value)} z prędkością 2x`,
-      'current_streak': `Słuchaj przez ${requirement_value} dni z rzędu`,
-      'streak_days': `Słuchaj przez ${requirement_value} dni z rzędu`,
-      'daily_episodes': `Słuchaj ${requirement_value} odcinków w jeden dzień`,
-      'daily_episodes_count': `Słuchaj ${requirement_value} odcinków w jeden dzień`,
-      'night_owl_sessions': `Słuchaj ${requirement_value} razy między 22:00 a 6:00`,
-      'early_bird_sessions': `Słuchaj ${requirement_value} razy między 5:00 a 9:00`
-    };
-    
-    return descriptions[requirement_type] || `Wykonaj ${requirement_value} ${requirement_type}`;
+    const key = `achievements.requirements.${requirement_type}`;
+    let template = t(key);
+    if (!template) {
+      // Ostateczny fallback gdy brak klucza we wszystkich językach
+      return `${requirement_value} ${requirement_type}`;
+    }
+    const timeStr = formatTime(requirement_value);
+    return template
+      .replace('{value}', String(requirement_value))
+      .replace('{time}', timeStr);
   };
 
   const getProgressText = (achievement) => {
@@ -113,8 +97,8 @@ const AchievementsPage = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Błąd</h2>
-            <p className="text-gray-600 dark:text-gray-300">Musisz być zalogowany, aby zobaczyć osiągnięcia.</p>
+            <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{t('common.error')}</h2>
+            <p className="text-gray-600 dark:text-gray-300">{t('errors.unauthorized')}</p>
           </div>
         </div>
       </Layout>
@@ -127,7 +111,7 @@ const AchievementsPage = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-300">Ładowanie osiągnięć...</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-300">{t('common.loading')}</p>
           </div>
         </div>
       </Layout>
@@ -139,13 +123,13 @@ const AchievementsPage = () => {
       <Layout>
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <h2 className="text-2xl font-bold mb-4 text-red-500">Błąd</h2>
+            <h2 className="text-2xl font-bold mb-4 text-red-500">{t('common.error')}</h2>
             <p className="mb-4 text-gray-600 dark:text-gray-300">{error}</p>
             <button 
               onClick={fetchAchievements}
               className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
             >
-              Spróbuj ponownie
+              {t('common.retry')}
             </button>
           </div>
         </div>
@@ -159,14 +143,14 @@ const AchievementsPage = () => {
 
   return (
     <Layout>
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6" data-testid="achievements">
         {/* Nagłówek */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            🏆 Osiągnięcia
+            🏆 {t('achievements.title')}
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Odblokowanych: {unlockedCount}/{totalCount}
+            {t('achievements.unlockedCount').replace('{unlocked}', String(unlockedCount)).replace('{total}', String(totalCount))}
           </p>
         </div>
 
@@ -176,7 +160,7 @@ const AchievementsPage = () => {
             <div key={category} className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700">
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {getCategoryName(category)}
+                  {getCategoryLabel(category)}
                 </h3>
               </div>
               
@@ -184,7 +168,7 @@ const AchievementsPage = () => {
                 {categoryAchievements.map((achievement) => (
                   <div 
                     key={achievement.id} 
-                    className={`p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-lg border-2 transition-all flex flex-col ${
                       achievement.completed 
                         ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
                         : 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
@@ -198,24 +182,26 @@ const AchievementsPage = () => {
                         <h4 className={`font-semibold text-gray-900 dark:text-white ${
                           achievement.completed ? 'text-green-600 dark:text-green-400' : ''
                         }`}>
-                          {achievement.name}
+                          {t(`achievements.titles.${achievement.slug || ''}`) || t(`achievements.titlesByType.${achievement.requirement_type || ''}`) || achievement.name}
                         </h4>
                         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                          {achievement.description}
+                          {language === 'pl' ? (achievement.description || getRequirementDescription(achievement)) : getRequirementDescription(achievement)}
                         </p>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                          🎯 {getRequirementDescription(achievement)}
-                        </div>
+                        {achievement.completed ? (
+                          <div className="mt-2 text-sm text-green-600 dark:text-green-400 font-medium">
+                            ✅ {t('achievements.completed')} {achievement.earned_at && formatDate(achievement.earned_at)}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                     
                     {!achievement.completed && achievement.progress_value !== undefined && (
                       <div className="mt-3">
                         <div className="flex justify-between text-xs mb-1 text-gray-600 dark:text-gray-300">
-                          <span>Postęp</span>
+                          <span>{t('achievements.progress')}</span>
                           <span>{getProgressText(achievement)}</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+                        <div className="w-full h-2 rounded-full bg-gray-200 dark:bg-gray-600" style={{ fontSize: 0, lineHeight: 0 }}>
                           <div 
                             className="h-2 rounded-full bg-primary transition-all duration-300"
                             style={{ 
@@ -223,20 +209,11 @@ const AchievementsPage = () => {
                             }}
                           ></div>
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          💡 {getRequirementDescription(achievement)}
-                        </div>
                       </div>
                     )}
                     
-                    {achievement.completed && (
-                      <div className="mt-3 text-sm text-green-600 dark:text-green-400 font-medium">
-                        ✅ Odblokowane {achievement.earned_at && new Date(achievement.earned_at).toLocaleDateString('pl-PL')}
-                      </div>
-                    )}
-                    
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      🏅 {achievement.points} punktów
+                    <div className="mt-auto pt-2 text-xs text-gray-500 dark:text-gray-400 self-start">
+                      🏅 {achievement.points} {t('achievements.points')}
                     </div>
                   </div>
                 ))}
@@ -248,8 +225,8 @@ const AchievementsPage = () => {
           {achievements.length === 0 && (
             <div className="text-center py-12 text-gray-600 dark:text-gray-300">
               <div className="text-6xl mb-4">🏆</div>
-              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">Brak osiągnięć</h3>
-              <p>Słuchaj odcinków, aby odblokować pierwsze osiągnięcia!</p>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900 dark:text-white">{t('achievements.noAchievements')}</h3>
+              <p>{t('achievements.keepListening')}</p>
             </div>
           )}
         </div>

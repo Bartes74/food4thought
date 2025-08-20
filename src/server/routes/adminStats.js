@@ -167,5 +167,75 @@ router.get('/stats', authenticateToken, async (req, res) => {
   }
 });
 
+// Pobierz aktywność użytkowników (admin only)
+router.get('/users/activity', authenticateToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    
+    // Sprawdź czy użytkownik jest adminem
+    if (req.user.role !== 'admin' && req.user.role !== 'super_admin') {
+      return res.status(403).json({ error: 'Brak uprawnień' });
+    }
+    
+    const { limit = 50 } = req.query;
+    
+    // Pobierz aktywność użytkowników
+    const userActivity = await db.all(`
+      SELECT 
+        u.id as userId,
+        u.email,
+        u.role,
+        u.created_at as joinedAt,
+        us.total_listening_time,
+        us.total_episodes_completed,
+        us.current_streak,
+        us.longest_streak,
+        us.avg_completion,
+        us.last_active,
+        (
+          SELECT COUNT(*) 
+          FROM user_achievements ua 
+          WHERE ua.user_id = u.id AND ua.completed = 1
+        ) as achievements_earned,
+        (
+          SELECT COUNT(*) 
+          FROM user_favorites uf 
+          WHERE uf.user_id = u.id
+        ) as favorites_count,
+        (
+          SELECT COUNT(*) 
+          FROM ratings r 
+          WHERE r.user_id = u.id
+        ) as ratings_count
+      FROM users u
+      LEFT JOIN user_stats us ON u.id = us.user_id
+      ORDER BY us.last_active DESC, u.created_at DESC
+      LIMIT ?
+    `, [parseInt(limit)]);
+    
+    // Formatuj dane
+    const formattedActivity = userActivity.map(user => ({
+      userId: user.userId,
+      email: user.email,
+      role: user.role,
+      joinedAt: user.joinedAt,
+      lastActive: user.last_active,
+      totalListeningTime: user.total_listening_time || 0,
+      episodesCompleted: user.total_episodes_completed || 0,
+      currentStreak: user.current_streak || 0,
+      longestStreak: user.longest_streak || 0,
+      avgCompletion: user.avg_completion || 0,
+      achievementsEarned: user.achievements_earned || 0,
+      favoritesCount: user.favorites_count || 0,
+      ratingsCount: user.ratings_count || 0
+    }));
+    
+    res.json(formattedActivity);
+  } catch (error) {
+    console.error('Get user activity error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 export default router;
 

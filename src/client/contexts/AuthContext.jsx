@@ -39,9 +39,11 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token')
+    console.log('Checking auth, token:', token ? 'exists' : 'missing')
     if (token) {
       try {
         const response = await axios.get('/api/auth/me')
+        console.log('Auth check successful:', response.data)
         setUser(response.data.user)
       } catch (error) {
         console.error('Auth check failed:', error)

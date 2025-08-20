@@ -3,6 +3,11 @@ import { getDb } from '../database.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Ustal __dirname w środowisku ES Modules (potrzebne do operacji na plikach)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
@@ -11,7 +16,7 @@ const parseTopicsFile = async (seriesId, filename) => {
   try {
     // Zamień rozszerzenie .mp3 na .txt
     const topicsFilename = filename.replace('.mp3', '.txt');
-    const topicsPath = path.join(__dirname, '../../../public/arkusze', `seria${seriesId}`, topicsFilename);
+    const topicsPath = path.join(__dirname, '../../public/arkusze', `seria${seriesId}`, topicsFilename);
     
     const content = await fs.promises.readFile(topicsPath, 'utf8');
     const lines = content.split('\n').filter(line => line.trim());
@@ -123,19 +128,22 @@ router.get('/my', authenticateToken, async (req, res) => {
     };
     
     episodes.forEach(episode => {
-      // Dodaj audioUrl do każdego odcinka z właściwą strukturą folderów
       episode.audioUrl = `/audio/seria${episode.series_id}/polski/${episode.filename}`;
       
-      const isCompleted = episode.user_completed === 1;
-      const hasProgress = episode.user_position !== null && episode.user_position > 0;
+      // Normalizuj pola zgodnie z frontendem HomePage
+      episode.position = episode.user_position ?? 0;
+      episode.completed = episode.user_completed === 1;
+      episode.favorite_date = episode.favorited_at || null;
+      episode.is_favorite = episode.is_favorite === 1 || episode.is_favorite === true;
+
+      const isCompleted = episode.completed;
+      const hasProgress = episode.position > 0 && !isCompleted;
       
       if (isCompleted) {
         groupedEpisodes.completed.push(episode);
       } else if (hasProgress) {
-        // Odcinki w trakcie - te które mają zapisany postęp
         groupedEpisodes.inProgress.push(episode);
       } else {
-        // Odcinki nowe - bez zapisanego postępu
         groupedEpisodes.new.push(episode);
       }
     });
@@ -325,7 +333,34 @@ router.get('/favorites', authenticateToken, async (req, res) => {
   }
 });
 
-
+// Zapisz tematy odcinka (admin only) - MUSI BYĆ PRZED WSZYSTKIMI /:id
+router.post('/:id/topics', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const episodeId = parseInt(req.params.id);
+    const { content } = req.body;
+    
+    // Sprawdź czy odcinek istnieje
+    const episode = await db.get('SELECT * FROM episodes WHERE id = ?', [episodeId]);
+    if (!episode) {
+      return res.status(404).json({ error: 'Odcinek nie znaleziony' });
+    }
+    
+    // Utwórz katalog jeśli nie istnieje
+    const topicsDir = path.join(__dirname, '../../public/arkusze', `seria${episode.series_id}`);
+    await fs.promises.mkdir(topicsDir, { recursive: true });
+    
+    // Zapisz plik z tematami
+    const topicsFilename = episode.filename.replace('.mp3', '.txt');
+    const topicsPath = path.join(topicsDir, topicsFilename);
+    await fs.promises.writeFile(topicsPath, content, 'utf8');
+    
+    res.json({ message: 'Tematy odcinka zapisane' });
+  } catch (error) {
+    console.error('Save episode topics error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
 
 // Pobierz odcinek po ID
 router.get('/:id', authenticateToken, async (req, res) => {
@@ -426,23 +461,16 @@ router.post('/:id/progress', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Odcinek nie znaleziony' });
     }
     
-    // Sprawdź czy istnieje już wpis w user_progress
-    const existingProgress = await db.get('SELECT * FROM user_progress WHERE user_id = ? AND episode_id = ?', [userId, episodeId]);
-    
-    if (existingProgress) {
-      // Aktualizuj istniejący wpis
-      await db.run(`
-        UPDATE user_progress 
-        SET position = ?, completed = ?, last_played = CURRENT_TIMESTAMP
-        WHERE user_id = ? AND episode_id = ?
-      `, [position, completed ? 1 : 0, userId, episodeId]);
-    } else {
-      // Utwórz nowy wpis
-      await db.run(`
-        INSERT INTO user_progress (user_id, episode_id, position, completed, last_played)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `, [userId, episodeId, position, completed ? 1 : 0]);
-    }
+    // Atomowy UPSERT (eliminuje wyścigi powodujące UNIQUE constraint)
+    await db.run(`
+      INSERT INTO user_progress (user_id, episode_id, position, completed, last_played)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(user_id, episode_id)
+      DO UPDATE SET 
+        position = excluded.position,
+        completed = excluded.completed,
+        last_played = CURRENT_TIMESTAMP
+    `, [userId, episodeId, position, completed ? 1 : 0]);
     
     res.json({ message: 'Postęp zapisany' });
   } catch (error) {
@@ -544,29 +572,18 @@ router.post('/:id/rating', authenticateToken, async (req, res) => {
   }
 });
 
-// Pobierz ocenę użytkownika dla odcinka
+// Pobierz ocenę użytkownika i średnią ocenę odcinka
 router.get('/:id/rating', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
     const episodeId = parseInt(req.params.id);
     const userId = parseInt(req.user.id);
     
-    const rating = await db.get('SELECT rating FROM ratings WHERE user_id = ? AND episode_id = ?', [userId, episodeId]);
+    // Pobierz ocenę użytkownika
+    const userRating = await db.get('SELECT rating FROM ratings WHERE user_id = ? AND episode_id = ?', [userId, episodeId]);
     
-    res.json({ rating: rating ? rating.rating : null });
-  } catch (error) {
-    console.error('Get rating error:', error);
-    res.status(500).json({ error: 'Błąd serwera' });
-  }
-});
-
-// Pobierz średnią ocenę odcinka
-router.get('/:id/average-rating', authenticateToken, async (req, res) => {
-  try {
-    const db = await getDb();
-    const episodeId = parseInt(req.params.id);
-    
-    const result = await db.get(`
+    // Pobierz średnią ocenę
+    const avgRating = await db.get(`
       SELECT 
         AVG(rating) as average_rating,
         COUNT(*) as rating_count
@@ -575,16 +592,187 @@ router.get('/:id/average-rating', authenticateToken, async (req, res) => {
     `, [episodeId]);
     
     res.json({
-      average_rating: result.average_rating || 0,
-      rating_count: result.rating_count || 0
+      userRating: userRating ? userRating.rating : null,
+      averageRating: avgRating.average_rating || 0,
+      ratingCount: avgRating.rating_count || 0
     });
   } catch (error) {
-    console.error('Get average rating error:', error);
+    console.error('Get rating error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
   }
 });
 
-
+// Pobierz następny odcinek do automatycznego odtwarzania
+router.get('/next/:currentEpisodeId', authenticateToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const userId = parseInt(req.user.id);
+    const currentEpisodeId = parseInt(req.params.currentEpisodeId);
+    
+    // Pobierz informacje o aktualnym odcinku
+    const currentEpisode = await db.get(`
+      SELECT id, series_id, title, filename
+      FROM episodes
+      WHERE id = ?
+    `, [currentEpisodeId]);
+    
+    if (!currentEpisode) {
+      return res.status(404).json({ error: 'Aktualny odcinek nie znaleziony' });
+    }
+    
+    // 1. Najpierw szukaj niedokończonych odcinków w tej samej serii
+    let nextEpisode = await db.get(`
+      SELECT 
+        e.id,
+        e.title,
+        e.filename,
+        e.series_id,
+        s.name as series_name,
+        s.color as series_color,
+        up.position as user_position,
+        up.completed as user_completed
+      FROM episodes e
+      JOIN series s ON e.series_id = s.id
+      LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
+      WHERE e.series_id = ? 
+        AND e.id != ?
+        AND s.active = 1
+        AND (up.completed IS NULL OR up.completed = 0)
+        AND (up.position IS NULL OR up.position > 0)
+      ORDER BY e.date_added ASC
+      LIMIT 1
+    `, [userId, currentEpisode.series_id, currentEpisodeId]);
+    
+    // 2. Jeśli nie ma niedokończonych w tej serii, szukaj nieodsłuchanych w tej serii
+    if (!nextEpisode) {
+      nextEpisode = await db.get(`
+        SELECT 
+          e.id,
+          e.title,
+          e.filename,
+          e.series_id,
+          s.name as series_name,
+          s.color as series_color,
+          up.position as user_position,
+          up.completed as user_completed
+        FROM episodes e
+        JOIN series s ON e.series_id = s.id
+        LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
+        WHERE e.series_id = ? 
+          AND e.id != ?
+          AND s.active = 1
+          AND up.episode_id IS NULL
+        ORDER BY e.date_added ASC
+        LIMIT 1
+      `, [userId, currentEpisode.series_id, currentEpisodeId]);
+    }
+    
+    // 3. Jeśli nie ma odcinków w tej serii, szukaj w ulubionych seriach
+    if (!nextEpisode) {
+      // Pobierz ulubione serie użytkownika
+      const favoriteSeries = await db.all(`
+        SELECT DISTINCT s.id, s.name, s.color
+        FROM series s
+        JOIN user_favorites uf ON s.id = (
+          SELECT series_id FROM episodes WHERE id = uf.episode_id
+        )
+        WHERE uf.user_id = ? AND s.active = 1 AND s.id != ?
+        ORDER BY s.name ASC
+      `, [userId, currentEpisode.series_id]);
+      
+      // Szukaj w każdej ulubionej serii
+      for (const series of favoriteSeries) {
+        // Najpierw niedokończone odcinki
+        nextEpisode = await db.get(`
+          SELECT 
+            e.id,
+            e.title,
+            e.filename,
+            e.series_id,
+            s.name as series_name,
+            s.color as series_color,
+            up.position as user_position,
+            up.completed as user_completed
+          FROM episodes e
+          JOIN series s ON e.series_id = s.id
+          LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
+          WHERE e.series_id = ? 
+            AND s.active = 1
+            AND (up.completed IS NULL OR up.completed = 0)
+            AND (up.position IS NULL OR up.position > 0)
+          ORDER BY e.date_added ASC
+          LIMIT 1
+        `, [userId, series.id]);
+        
+        if (nextEpisode) break;
+        
+        // Jeśli nie ma niedokończonych, szukaj nieodsłuchanych
+        nextEpisode = await db.get(`
+          SELECT 
+            e.id,
+            e.title,
+            e.filename,
+            e.series_id,
+            s.name as series_name,
+            s.color as series_color,
+            up.position as user_position,
+            up.completed as user_completed
+          FROM episodes e
+          JOIN series s ON e.series_id = s.id
+          LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
+          WHERE e.series_id = ? 
+            AND s.active = 1
+            AND up.episode_id IS NULL
+          ORDER BY e.date_added ASC
+          LIMIT 1
+        `, [userId, series.id]);
+        
+        if (nextEpisode) break;
+      }
+    }
+    
+    // 4. Jeśli nadal nie ma, szukaj w wszystkich seriach
+    if (!nextEpisode) {
+      nextEpisode = await db.get(`
+        SELECT 
+          e.id,
+          e.title,
+          e.filename,
+          e.series_id,
+          s.name as series_name,
+          s.color as series_color,
+          up.position as user_position,
+          up.completed as user_completed
+        FROM episodes e
+        JOIN series s ON e.series_id = s.id
+        LEFT JOIN user_progress up ON e.id = up.episode_id AND up.user_id = ?
+        WHERE s.active = 1
+          AND e.id != ?
+          AND (up.completed IS NULL OR up.completed = 0)
+        ORDER BY e.date_added ASC
+        LIMIT 1
+      `, [userId, currentEpisodeId]);
+    }
+    
+    if (nextEpisode) {
+      // Dodaj audioUrl
+      nextEpisode.audioUrl = `/audio/seria${nextEpisode.series_id}/polski/${nextEpisode.filename}`;
+      
+      res.json({
+        nextEpisode,
+        message: `Następny odcinek: ${nextEpisode.title} (${nextEpisode.series_name})`
+      });
+    } else {
+      res.json({
+        nextEpisode: null,
+        message: 'Brak więcej odcinków do odtworzenia'
+      });
+    }
+  } catch (error) {
+    console.error('Get next episode error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
 
 // Usuń odcinek (admin only)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {

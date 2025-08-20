@@ -74,11 +74,10 @@ npm run test:coverage
 - `DELETE /api/series/:id` - Usuwanie serii (admin)
 
 ### Statystyki użytkownika
-- `GET /api/users/:id/stats` - Statystyki użytkownika
-- `GET /api/users/series-stats` - Statystyki serii
+- `GET /api/users/:id/stats` — Statystyki użytkownika (zwraca także `seriesStats` w jednej odpowiedzi)
 
 ### Osiągnięcia
-- `GET /api/achievements` - Lista osiągnięć użytkownika
+- `GET /api/achievements` — Lista osiągnięć użytkownika z polami `progress_value`, `completed` i `earned_at`
 
 ## Nowe funkcjonalności testowane
 
@@ -97,6 +96,68 @@ Wszystkie endpointy odcinków zawierają informacje o serii:
 - `series_name` - Nazwa serii
 - `series_color` - Kolor serii
 - `series_image` - Obraz serii
+
+### Automatyczne odtwarzanie
+Nowy endpoint `/api/episodes/next/:id` dla automatycznego odtwarzania:
+```javascript
+{
+  nextEpisode: {...},   // Następny odcinek lub null
+  message: "string"     // Wiadomość informacyjna
+}
+```
+
+### AudioUrl w odcinkach
+Wszystkie endpointy odcinków zawierają `audioUrl`:
+```javascript
+{
+  id: 1,
+  title: "Tytuł odcinka",
+  audioUrl: "/audio/seria173/polski/2025_07_31_odcinek01.mp3",
+  // ... inne pola
+}
+```
+
+### Średnia dokładność ukończenia
+Nowa kolumna `avg_completion` w statystykach użytkownika:
+```javascript
+{
+  total_listening_time: 3600,
+  episodes_completed: 5,
+  achievements_earned: 3,
+  avg_completion: 0.85  // Nowe pole
+}
+```
+
+### Rejestrowanie sesji słuchania
+Nowy endpoint `/api/achievements/record-session`:
+```javascript
+{
+  episodeId: 1,
+  startTime: "2024-01-01T00:00:00Z",
+  endTime: "2024-01-01T00:01:00Z",
+  playbackSpeed: 1.0,
+  completionRate: 0.95,
+  durationSeconds: 60
+}
+```
+
+### Statystyki administratora
+Nowe endpointy dla administratora:
+- `GET /api/admin/stats` - Statystyki systemu
+- `GET /api/admin/users/activity` - Aktywność użytkowników
+
+### Kategorie osiągnięć
+Osiągnięcia zawierają kategorie:
+```javascript
+{
+  id: 1,
+  name: "Pierwszy krok",
+  description: "Ukończono pierwszy odcinek",
+  category: "episodes",  // Nowe pole
+  progress: 1,
+  completed: true
+}
+```
 
 ### System ulubionych
 - Endpoint `/api/episodes/favorites` z wyszukiwaniem

@@ -5,35 +5,6 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Pobierz statystyki według serii (musi być przed /:id)
-router.get('/series-stats', authenticateToken, async (req, res) => {
-  try {
-    const db = await getDb();
-    const userId = parseInt(req.user.id);
-    
-    const seriesStats = await db.all(`
-      SELECT 
-        s.id,
-        s.name,
-        s.color,
-        COUNT(DISTINCT e.id) as totalCount,
-        COUNT(DISTINCT CASE WHEN ls.completion_rate >= 0.9 THEN e.id END) as completedCount
-      FROM series s
-      LEFT JOIN episodes e ON s.id = e.series_id
-      LEFT JOIN listening_sessions ls ON e.id = ls.episode_id AND ls.user_id = ?
-      WHERE s.active = 1
-      GROUP BY s.id, s.name, s.color
-      HAVING totalCount > 0
-      ORDER BY completedCount DESC, s.name
-    `, [userId]);
-    
-    res.json(seriesStats);
-  } catch (error) {
-    console.error('Get series stats error:', error);
-    res.status(500).json({ error: 'Błąd serwera' });
-  }
-});
-
 // Aktualizuj preferencje użytkownika
 router.put('/preferences', authenticateToken, async (req, res) => {
   try {
@@ -92,7 +63,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Pobierz statystyki użytkownika
+// Pobierz statystyki użytkownika (łącznie ze statystykami według serii)
 router.get('/:id/stats', authenticateToken, async (req, res) => {
   try {
     const db = await getDb();
@@ -102,25 +73,32 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Brak uprawnień' });
     }
     
-    // Pobierz statystyki z user_stats
-    const userStats = await db.get(`
+    // Spójne statystyki liczone z listening_sessions (zamiast polegać na potencjalnie nieaktualnym user_stats)
+    const totalListening = await db.get(`
+      SELECT COALESCE(SUM(duration_seconds), 0) AS total FROM listening_sessions WHERE user_id = ?
+    `, [userId]);
+
+    const completedAgg = await db.get(`
       SELECT 
-        total_listening_time,
-        total_episodes_completed,
-        current_streak,
-        longest_streak
-      FROM user_stats 
+        COALESCE(COUNT(DISTINCT CASE WHEN completion_rate >= 0.9 THEN episode_id END), 0) AS completedCount,
+        COALESCE(AVG(CASE WHEN completion_rate >= 0.9 THEN completion_rate END), 0) AS avgCompletion
+      FROM listening_sessions
       WHERE user_id = ?
     `, [userId]);
-    
-    // Pobierz podstawowe statystyki
+
+    // Streaky z user_stats jeśli są, ale w razie braku ustaw 0 (opcjonalnie można liczyć jak w achievements)
+    const userStats = await db.get(`
+      SELECT current_streak, longest_streak FROM user_stats WHERE user_id = ?
+    `, [userId]);
+
     const stats = {
-      totalListeningTime: userStats?.total_listening_time || 0, // w sekundach
-      completedCount: userStats?.total_episodes_completed || 0,
+      totalListeningTime: Number(totalListening?.total) || 0,
+      completedCount: Number(completedAgg?.completedCount) || 0,
       inProgressCount: 0,
       favoritesCount: 0,
       currentStreak: userStats?.current_streak || 0,
-      longestStreak: userStats?.longest_streak || 0
+      longestStreak: userStats?.longest_streak || 0,
+      avgCompletion: Number(completedAgg?.avgCompletion) || 0
     };
     
     // Liczba odcinków w trakcie (taka sama logika jak w /api/episodes/my)
@@ -158,6 +136,25 @@ router.get('/:id/stats', authenticateToken, async (req, res) => {
     `, [userId]);
     
     stats.completedEpisodes = completedEpisodes;
+    
+    // Statystyki według serii
+    const seriesStats = await db.all(`
+      SELECT 
+        s.id,
+        s.name,
+        s.color,
+        COUNT(DISTINCT e.id) as totalCount,
+        COUNT(DISTINCT CASE WHEN ls.completion_rate >= 0.9 THEN e.id END) as completedCount
+      FROM series s
+      LEFT JOIN episodes e ON s.id = e.series_id
+      LEFT JOIN listening_sessions ls ON e.id = ls.episode_id AND ls.user_id = ?
+      WHERE s.active = 1
+      GROUP BY s.id, s.name, s.color
+      HAVING totalCount > 0
+      ORDER BY completedCount DESC, s.name
+    `, [userId]);
+    
+    stats.seriesStats = seriesStats;
     
     res.json(stats);
   } catch (error) {

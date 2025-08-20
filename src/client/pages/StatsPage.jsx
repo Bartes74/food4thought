@@ -7,7 +7,7 @@ import axios from 'axios';
 
 const StatsPage = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const { isDarkMode } = useTheme();
   
   const [stats, setStats] = useState(null);
@@ -21,16 +21,13 @@ const StatsPage = () => {
 
   const fetchStats = async () => {
     try {
-      const [statsResponse, seriesResponse] = await Promise.all([
-        axios.get(`/api/users/${user.id}/stats`),
-        axios.get('/api/users/series-stats')
-      ]);
+      const statsResponse = await axios.get(`/api/users/${user.id}/stats`);
       
       console.log('Stats response:', statsResponse.data);
       console.log('Completed episodes:', statsResponse.data.completedEpisodes);
       
       setStats(statsResponse.data);
-      setSeriesStats(seriesResponse.data);
+      setSeriesStats(statsResponse.data?.seriesStats || []);
     } catch (error) {
       console.error('Błąd pobierania statystyk:', error);
     } finally {
@@ -49,10 +46,7 @@ const StatsPage = () => {
     return `Dni: ${days}, ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Brak';
-    return new Date(dateString).toLocaleDateString('pl-PL');
-  };
+  const formatDateLocal = (dateString) => (dateString ? formatDate(dateString) : t('stats.never'));
 
   if (loading) {
     return (
@@ -60,7 +54,7 @@ const StatsPage = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie statystyk...</p>
+            <p className="mt-4 text-light-textSecondary dark:text-gray-400">{t('adminStats.loading')}</p>
           </div>
         </div>
       </Layout>
@@ -71,11 +65,11 @@ const StatsPage = () => {
     <Layout>
       <div className="max-w-6xl mx-auto p-6">
         <h1 className="text-3xl font-bold text-light-text dark:text-white mb-8">
-          Statystyki
+          {t('stats.yourStats')}
         </h1>
 
         {/* Tabs */}
-        <div className="flex space-x-1 mb-8 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+        <div className="flex space-x-1 mb-8 bg-gray-100 dark:bg-gray-800 rounded-lg p-1" data-testid="stats-tabs">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
@@ -84,7 +78,7 @@ const StatsPage = () => {
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            Przegląd
+            {t('stats.overview')}
           </button>
           <button
             onClick={() => setActiveTab('series')}
@@ -94,12 +88,12 @@ const StatsPage = () => {
                 : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
-            Według serii
+            {t('stats.series')}
           </button>
         </div>
 
         {activeTab === 'overview' && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="overview-stats">
             {/* Główne statystyki */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
@@ -110,7 +104,7 @@ const StatsPage = () => {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Całkowity czas</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('stats.totalTime')}</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {formatTime(stats?.totalListeningTime || 0)}
                     </p>
@@ -126,7 +120,7 @@ const StatsPage = () => {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Ukończone</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('stats.completed')}</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats?.completedCount || 0}
                     </p>
@@ -142,7 +136,7 @@ const StatsPage = () => {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">W trakcie</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('stats.inProgress')}</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats?.inProgressCount || 0}
                     </p>
@@ -158,7 +152,7 @@ const StatsPage = () => {
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Ulubione</p>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('stats.favorites')}</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {stats?.favoritesCount || 0}
                     </p>
@@ -170,29 +164,29 @@ const StatsPage = () => {
             {/* Szczegółowe statystyki */}
             <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Szczegółowe statystyki
+                {t('stats.listeningHabits')}
               </h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
-                    Postęp słuchania
+                    {t('stats.listeningHabits')}
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Ukończone odcinki</span>
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.completed')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {stats?.completedCount || 0}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Odcinki w trakcie</span>
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.inProgress')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {stats?.inProgressCount || 0}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Całkowity czas słuchania</span>
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.listeningTime')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {formatTime(stats?.totalListeningTime || 0)}
                       </span>
@@ -202,22 +196,28 @@ const StatsPage = () => {
 
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-3">
-                    Aktywność
+                    {t('stats.overview')}
                   </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Ulubione odcinki</span>
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.favorites')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {stats?.favoritesCount || 0}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-300">Średni czas na odcinek</span>
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.averageSessionLength')}</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {stats?.completedCount > 0 
                           ? formatTime(Math.round(stats.totalListeningTime / stats.completedCount))
                           : '0 min'
                         }
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-300">{t('stats.percentComplete')}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {stats?.avgCompletion ? `${Math.round(stats.avgCompletion * 100)}%` : '0%'}
                       </span>
                     </div>
                   </div>
@@ -228,7 +228,7 @@ const StatsPage = () => {
             {/* Lista ukończonych odcinków */}
             <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Ukończone odcinki
+                {t('stats.history')}
               </h2>
               {stats?.completedEpisodes && stats.completedEpisodes.length > 0 ? (
                 <div className="space-y-4">
@@ -239,7 +239,7 @@ const StatsPage = () => {
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{episode.title}</p>
                           <p className="text-xs text-gray-600 dark:text-gray-300">
-                            {episode.series_name} • {formatDate(episode.start_time)}
+                            {episode.series_name} • {formatDateLocal(episode.start_time)}
                           </p>
                         </div>
                       </div>
@@ -254,7 +254,7 @@ const StatsPage = () => {
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-600 dark:text-gray-300">
-                    Brak ukończonych odcinków
+                    {t('stats.never')}
                   </p>
                 </div>
               )}
@@ -263,16 +263,16 @@ const StatsPage = () => {
         )}
 
         {activeTab === 'series' && (
-          <div className="space-y-6">
+          <div className="space-y-6" data-testid="series-stats">
             <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 shadow-lg border border-gray-200 dark:border-gray-700`}>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">
-                Statystyki według serii
+                {t('stats.series')}
               </h2>
               
               {seriesStats.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-600 dark:text-gray-300">
-                    Brak danych o seriach
+                    {t('stats.noSeriesData')}
                   </p>
                 </div>
               ) : (
@@ -308,10 +308,10 @@ const StatsPage = () => {
                       
                       <div className="flex justify-between items-center mt-2 text-sm">
                         <span className="text-gray-600 dark:text-gray-300">
-                          Postęp: {series.totalCount > 0 ? Math.round((series.completedCount / series.totalCount) * 100) : 0}%
+                          {t('stats.percentComplete').replace('{percent}', String(series.totalCount > 0 ? Math.round((series.completedCount / series.totalCount) * 100) : 0))}
                         </span>
                         <span className="text-gray-600 dark:text-gray-300">
-                          {series.completedCount} ukończonych
+                          {t('stats.completedOf').replace('{completed}', String(series.completedCount)).replace('{total}', String(series.totalCount))}
                         </span>
                       </div>
                     </div>

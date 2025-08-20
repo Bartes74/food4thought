@@ -83,9 +83,20 @@ export const checkAndAwardAchievements = async (userId) => {
       });
     });
 
+    // Sprawdź strukturę tabeli user_achievements (zgodność wsteczna)
+    const uaCols = await new Promise((resolve, reject) => {
+      db.all("PRAGMA table_info(user_achievements)", [], (err, rows) => {
+        if (err) reject(err); else resolve(rows || []);
+      });
+    });
+    const hasUaProgress = uaCols.some(c => c.name === 'progress_value') && uaCols.some(c => c.name === 'completed');
+
     // Pobierz już przyznane osiągnięcia
     const earnedAchievements = await new Promise((resolve, reject) => {
-      db.all('SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1', [userId], (err, rows) => {
+      const query = hasUaProgress
+        ? 'SELECT achievement_id FROM user_achievements WHERE user_id = ? AND completed = 1'
+        : 'SELECT achievement_id FROM user_achievements WHERE user_id = ?';
+      db.all(query, [userId], (err, rows) => {
         if (err) reject(err);
         else resolve(rows.map(row => row.achievement_id));
       });
@@ -139,29 +150,36 @@ export const checkAndAwardAchievements = async (userId) => {
       }
 
       if (completed) {
-        // Przyznaj osiągnięcie
-        await new Promise((resolve, reject) => {
-          db.run(`
-            INSERT OR REPLACE INTO user_achievements 
-            (user_id, achievement_id, earned_at, progress_value, completed)
-            VALUES (?, ?, CURRENT_TIMESTAMP, ?, 1)
-          `, [userId, achievement.id, progress], function(err) {
-            if (err) reject(err);
-            else resolve();
+        if (hasUaProgress) {
+          await new Promise((resolve, reject) => {
+            db.run(`
+              INSERT OR REPLACE INTO user_achievements 
+              (user_id, achievement_id, earned_at, progress_value, completed)
+              VALUES (?, ?, CURRENT_TIMESTAMP, ?, 1)
+            `, [userId, achievement.id, progress], function(err) {
+              if (err) reject(err); else resolve();
+            });
           });
-        });
-
+        } else {
+          await new Promise((resolve, reject) => {
+            db.run(`
+              INSERT OR IGNORE INTO user_achievements (user_id, achievement_id, earned_at)
+              VALUES (?, ?, CURRENT_TIMESTAMP)
+            `, [userId, achievement.id], function(err) {
+              if (err) reject(err); else resolve();
+            });
+          });
+        }
         newAchievements.push(achievement);
-      } else {
-        // Zaktualizuj postęp
+      } else if (hasUaProgress) {
+        // Aktualizuj postęp (tylko jeśli kolumny istnieją)
         await new Promise((resolve, reject) => {
           db.run(`
             INSERT OR REPLACE INTO user_achievements 
             (user_id, achievement_id, progress_value, completed)
             VALUES (?, ?, ?, 0)
           `, [userId, achievement.id, progress], function(err) {
-            if (err) reject(err);
-            else resolve();
+            if (err) reject(err); else resolve();
           });
         });
       }
@@ -227,53 +245,102 @@ export const getUserAchievements = (userId) => {
 export const getUserStats = async (userId) => {
   try {
     const db = await getDb();
-    return new Promise((resolve, reject) => {
-      db.get(`
-        SELECT 
-          us.*,
-          (SELECT COUNT(*) FROM user_achievements ua WHERE ua.user_id = ? AND ua.completed = 1) as total_achievements,
-          (SELECT COALESCE(SUM(a.points), 0) FROM user_achievements ua 
-           JOIN achievements a ON ua.achievement_id = a.id 
-           WHERE ua.user_id = ? AND ua.completed = 1) as total_points
-        FROM user_stats us 
+    // 1) Bazowe pola z user_stats (z mapowaniem starych nazw kolumn)
+    const row = await db.get(`SELECT * FROM user_stats WHERE user_id = ?`, [userId]);
+    const baseStats = {
+      user_id: userId,
+      total_listening_time: (row?.total_listening_time ?? row?.total_listening_seconds) || 0,
+      total_episodes_completed: (row?.total_episodes_completed ?? row?.episodes_completed) || 0,
+      current_streak: row?.current_streak || 0,
+      longest_streak: row?.longest_streak || 0,
+      last_listening_date: row?.last_listening_date || row?.last_active || null,
+      avg_completion: row?.avg_completion || 0,
+      favorite_category: row?.favorite_category || null,
+      last_updated: row?.last_updated || row?.updated_at || new Date().toISOString()
+    };
+
+    // 2) Punkty i liczba osiągnięć
+    const totals = await db.get(`
+      SELECT 
+        (SELECT COUNT(*) FROM user_achievements ua WHERE ua.user_id = ? AND ua.completed = 1) as total_achievements,
+        (SELECT COALESCE(SUM(a.points), 0) FROM user_achievements ua 
+         JOIN achievements a ON ua.achievement_id = a.id 
+         WHERE ua.user_id = ? AND ua.completed = 1) as total_points
+    `, [userId, userId]);
+
+    // 3) Metryki potrzebne do progresu osiągnięć – licz z listening_sessions
+    const aggregates = await db.get(`
+      SELECT 
+        COALESCE(SUM(CASE WHEN playback_speed >= 1.5 THEN duration_seconds ELSE 0 END), 0) AS high_speed_listening_time,
+        COALESCE(SUM(CASE WHEN completion_rate >= 0.95 THEN 1 ELSE 0 END), 0) AS perfect_completions
+      FROM listening_sessions
+      WHERE user_id = ?
+    `, [userId]);
+
+    const nightOwl = await db.get(`
+      SELECT COALESCE(COUNT(*), 0) AS cnt
+      FROM listening_sessions
+      WHERE user_id = ?
+        AND (
+          CAST(strftime('%H', start_time) AS INTEGER) >= 22
+          OR CAST(strftime('%H', start_time) AS INTEGER) < 6
+        )
+    `, [userId]);
+
+    const earlyBird = await db.get(`
+      SELECT COALESCE(COUNT(*), 0) AS cnt
+      FROM listening_sessions
+      WHERE user_id = ?
+        AND CAST(strftime('%H', start_time) AS INTEGER) BETWEEN 6 AND 9
+    `, [userId]);
+
+    const maxDaily = await db.get(`
+      SELECT COALESCE(MAX(cnt), 0) AS max_count FROM (
+        SELECT date(start_time) AS day, COUNT(DISTINCT episode_id) AS cnt
+        FROM listening_sessions
         WHERE user_id = ?
-      `, [userId, userId, userId], (err, row) => {
-      if (err) {
-        console.error('Error fetching user stats:', err);
-        reject(err);
-      } else {
-        // Ensure all required fields are present with default values
-        const defaultStats = {
-          user_id: userId,
-          total_listening_time: 0,
-          total_episodes_completed: 0,
-          current_streak: 0,
-          longest_streak: 0,
-          last_listening_date: null,
-          total_achievements: 0,
-          total_points: 0,
-          average_completion_rate: 0,
-          favorite_category: null,
-          last_updated: new Date().toISOString()
-        };
-        
-        // Merge with database row if exists
-        const stats = row ? { ...defaultStats, ...row } : defaultStats;
-        
-        // Ensure numeric fields are numbers
-        const numericFields = [
-          'total_listening_time', 'total_episodes_completed', 'current_streak', 'longest_streak',
-          'total_achievements', 'total_points', 'average_completion_rate'
-        ];
-        
-        numericFields.forEach(field => {
-          stats[field] = Number(stats[field]) || 0;
-        });
-        
-        resolve(stats);
+        GROUP BY day
+      )
+    `, [userId]);
+
+    // 4) Bieżąca seria dni (current_streak) obliczana z distinct days
+    const days = await db.all(`
+      SELECT date(start_time) AS day
+      FROM listening_sessions
+      WHERE user_id = ?
+      GROUP BY day
+      ORDER BY day DESC
+    `, [userId]);
+
+    let computedCurrentStreak = 0;
+    if (days.length > 0) {
+      const today = new Date();
+      let cursor = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+      // Normalizuj do YYYY-MM-DD
+      const toKey = (d) => d.toISOString().split('T')[0];
+      const set = new Set(days.map(d => d.day));
+      // Jeżeli nie było aktywności dziś, zacznij od wczoraj
+      if (!set.has(toKey(cursor))) {
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
       }
-    });
-  });
+      while (set.has(toKey(cursor))) {
+        computedCurrentStreak += 1;
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+      }
+    }
+
+    return {
+      ...baseStats,
+      total_achievements: totals?.total_achievements || 0,
+      total_points: totals?.total_points || 0,
+      high_speed_listening_time: Number(aggregates?.high_speed_listening_time) || 0,
+      perfect_completions: Number(aggregates?.perfect_completions) || 0,
+      night_owl_sessions: Number(nightOwl?.cnt) || 0,
+      early_bird_sessions: Number(earlyBird?.cnt) || 0,
+      daily_episodes_count: Number(maxDaily?.max_count) || 0,
+      // Nadpisz obliczoną serią, jeśli większa
+      current_streak: Math.max(baseStats.current_streak || 0, computedCurrentStreak)
+    };
   } catch (error) {
     console.error('Error in getUserStats:', error);
     throw error;

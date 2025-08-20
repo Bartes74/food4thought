@@ -11,7 +11,8 @@ export const translations = {
       delete: 'Usuń',
       edit: 'Edytuj',
       logout: 'Wyloguj',
-      welcome: 'Witaj'
+      welcome: 'Witaj',
+      retry: 'Spróbuj ponownie'
     },
     login: {
       title: 'Food 4 Thought',
@@ -67,7 +68,13 @@ export const translations = {
       topicsList: 'Lista tematów',
       addToFavorites: 'Dodaj do ulubionych',
       removeFromFavorites: 'Usuń z ulubionych',
-      volume: 'Głośność'
+      volume: 'Głośność',
+      autoPlay: 'Automatyczne odtwarzanie',
+      autoPlayEnabled: 'Auto-play włączone',
+      autoPlayDisabled: 'Auto-play wyłączone',
+      nextEpisode: 'Następny odcinek',
+      noMoreEpisodes: 'Brak więcej odcinków do odtworzenia',
+      playingNext: 'Odtwarzanie następnego odcinka'
     },
     
     homePage: {
@@ -121,7 +128,34 @@ export const translations = {
     },
     
     achievements: {
+      title: 'Osiągnięcia',
       unlockedCount: 'Odblokowanych osiągnięć: {unlocked}/{total}',
+      progress: 'Postęp',
+      points: 'punktów',
+      noAchievements: 'Brak osiągnięć',
+      keepListening: 'Słuchaj odcinków, aby odblokować pierwsze osiągnięcia!',
+      titles: {
+        niezlomny: 'Niezłomny',
+        'szybki-sluchacz': 'Szybki Słuchacz',
+        'dokladny-sluchacz': 'Dokładny Słuchacz',
+        'nocny-marek': 'Nocny Marek',
+        'ranny-ptaszek': 'Ranny Ptaszek',
+        'seria-mistrzowska': 'Seria Mistrzowska',
+        'codzienny-sluchacz': 'Codzienny Słuchacz'
+      },
+      titlesByType: {
+        episodes_completed: 'Mistrz odcinków',
+        perfect_completion: 'Precyzyjny słuchacz',
+        perfect_completions: 'Precyzyjny słuchacz',
+        high_speed_time: 'Szybki słuchacz',
+        high_speed_listening_time: 'Szybki słuchacz',
+        current_streak: 'Seria mistrzowska',
+        streak_days: 'Seria mistrzowska',
+        daily_episodes: 'Codzienny słuchacz',
+        daily_episodes_count: 'Codzienny słuchacz',
+        night_owl_sessions: 'Nocny marek',
+        early_bird_sessions: 'Ranny ptaszek'
+      },
       motivationalMessage: {
         allUnlocked: '🎉 Gratulacje! Odblokowane wszystkie podstawowe osiągnięcia!',
         oneEpisodeLeft: '🎯 Jeszcze jeden odcinek do osiągnięcia "{name}"!',
@@ -141,7 +175,30 @@ export const translations = {
         episodes: '🎧 Za odcinki',
         time: '⏰ Za czas słuchania',
         favorites: '❤️ Za ulubione',
-        special: '⭐ Specjalne'
+        special: '⭐ Specjalne',
+        speed: '⚡ Prędkość',
+        playback_speed: '🚀 Prędkość odtwarzania',
+        precision: '🎯 Dokładność',
+        patterns: '🕐 Wzorce czasowe',
+        time_patterns: '🌙 Wzorce czasowe',
+        streak: '🔥 Serie',
+        streaks: '💪 Wytrwałość',
+        daily: '📅 Codzienność',
+        daily_activity: '🏃 Aktywność dzienna',
+        general: '🏆 Ogólne'
+      },
+      requirements: {
+        episodes_completed: 'Ukończ {value} odcinków',
+        perfect_completion: 'Ukończ odcinek z 95%+ dokładnością',
+        perfect_completions: 'Ukończ {value} odcinków z 95%+ dokładnością',
+        high_speed_time: 'Słuchaj przez {time} z prędkością 2x',
+        high_speed_listening_time: 'Słuchaj przez {time} z prędkością 2x',
+        current_streak: 'Słuchaj przez {value} dni z rzędu',
+        streak_days: 'Słuchaj przez {value} dni z rzędu',
+        daily_episodes: 'Słuchaj {value} odcinków w jeden dzień',
+        daily_episodes_count: 'Słuchaj {value} odcinków w jeden dzień',
+        night_owl_sessions: 'Słuchaj {value} razy między 22:00 a 6:00',
+        early_bird_sessions: 'Słuchaj {value} razy między 5:00 a 9:00'
       },
       legend: '📋 Legenda osiągnięć',
       legendItems: {
@@ -283,8 +340,7 @@ export const translations = {
       playbackPreferences: 'Preferencje odtwarzania',
       defaultSpeed: 'Domyślna prędkość odtwarzania',
       normal: 'Normalna',
-      autoplay: 'Automatyczne odtwarzanie następnego odcinka',
-      showCompleted: 'Pokazuj ukończone odcinki',
+      // autoplay and showCompleted removed from profile UI
       yourSeries: 'Twoje serie',
       allSeries: 'Wszystkie serie',
       selectedSeries: 'Wybrane serie',
@@ -421,6 +477,7 @@ export const translations = {
       loading: 'Loading...',
       error: 'Error',
       success: 'Success',
+      retry: 'Try again',
       cancel: 'Cancel',
       save: 'Save',
       delete: 'Delete',
@@ -439,6 +496,80 @@ export const translations = {
       seriesDeleted: 'Series deleted',
       confirmDelete: 'Are you sure you want to delete this series?',
       cannotDeleteWithEpisodes: 'Cannot delete series that has episodes. Delete all episodes first.'
+    },
+
+    login: {
+      title: 'Food 4 Thought',
+      subtitle: 'Sign in to your account',
+      loginButton: 'Sign in',
+      registerLink: "Don't have an account? Sign up",
+      forgotPassword: 'Forgot password?',
+      processing: 'Processing...',
+      invalidCredentials: 'Invalid email or password',
+      testAccount: 'Test account:',
+      emailPlaceholder: 'your@email.com',
+      passwordPlaceholder: '••••••••'
+    },
+
+    register: {
+      subtitle: 'Create a new account',
+      registerButton: 'Create account',
+      loginLink: 'Already have an account? Sign in',
+      passwordTooShort: 'Password must be at least 6 characters',
+      emailRequired: 'Email is required',
+      passwordRequired: 'Password is required',
+      invalidEmail: 'Invalid email format',
+      emailTaken: 'Email is already registered'
+    },
+
+    reset: {
+      subtitle: 'Reset password',
+      resetButton: 'Send reset link',
+      backToLogin: 'Back to login',
+      emailSent: 'A reset link has been sent to your email',
+      checkEmail: 'If the email exists, you will receive a reset link'
+    },
+    
+    audioPlayer: {
+      selectEpisode: 'Select an episode to play',
+      topics: 'Episode topics',
+      noLinks: 'No links for this episode',
+      showAllTopics: 'Show all topics',
+      hideAllTopics: 'Hide all topics',
+      additionalInfo: 'Additional information',
+      expand: 'Expand',
+      collapse: 'Collapse',
+      rewind15: 'Rewind 15 seconds',
+      forward30: 'Forward 30 seconds',
+      topicsList: 'Topics list',
+      addToFavorites: 'Add to favorites',
+      removeFromFavorites: 'Remove from favorites'
+    },
+    
+    homePage: {
+      searchEpisodes: 'Search episodes',
+      searchPlaceholder: 'Search titles and descriptions...',
+      search: 'Search',
+      searching: 'Searching...',
+      advancedFilters: 'Advanced filters',
+      clearSearch: 'Clear search',
+      series: 'Series',
+      allSeries: 'All series',
+      dateFrom: 'Date from',
+      dateTo: 'Date to',
+      searchResults: 'Search results',
+      foundEpisodes: '{count} episodes found for "{query}"',
+      noResults: 'No episodes found matching the query',
+      tryDifferentCriteria: 'Try changing the search criteria',
+      newEpisodes: 'New episodes',
+      inProgress: 'In progress',
+      historyButton: 'History of listened episodes',
+      yourSeries: 'Your Series',
+      episodesCount: '{count} episodes',
+      toListen: '{count} to listen',
+      selectedSeries: 'Selected series',
+      showAll: 'Show all',
+      episodesFromSeries: 'Episodes from series: {seriesName}'
     },
     
     episodes: {
@@ -498,6 +629,67 @@ export const translations = {
       completed: 'Completed'
     },
     
+    achievements: {
+      title: 'Achievements',
+      unlockedCount: 'Unlocked achievements: {unlocked}/{total}',
+      completed: 'Completed!',
+      progress: 'Progress',
+      points: 'points',
+      noAchievements: 'No achievements',
+      keepListening: 'Keep listening to unlock your first achievements!',
+      titles: {
+        niezlomny: 'Unbreakable',
+        'szybki-sluchacz': 'Speedster',
+        'dokladny-sluchacz': 'Precision Listener',
+        'nocny-marek': 'Night Owl',
+        'ranny-ptaszek': 'Early Bird',
+        'seria-mistrzowska': 'Streak Master',
+        'codzienny-sluchacz': 'Daily Listener'
+      },
+      titlesByType: {
+        episodes_completed: 'Episodes Master',
+        perfect_completion: 'Precision Listener',
+        perfect_completions: 'Precision Listener',
+        high_speed_time: 'Speedster',
+        high_speed_listening_time: 'Speedster',
+        current_streak: 'Streak Master',
+        streak_days: 'Streak Master',
+        daily_episodes: 'Daily Listener',
+        daily_episodes_count: 'Daily Listener',
+        night_owl_sessions: 'Night Owl',
+        early_bird_sessions: 'Early Bird'
+      },
+      categories: {
+        episodes: '🎧 For episodes',
+        time: '⏰ For listening time',
+        favorites: '❤️ For favorites',
+        special: '⭐ Special',
+        speed: '⚡ Speed',
+        playback_speed: '🚀 Playback speed',
+        precision: '🎯 Precision',
+        patterns: '🕐 Time patterns',
+        time_patterns: '🌙 Time patterns',
+        streak: '🔥 Streak',
+        streaks: '💪 Persistence',
+        daily: '📅 Daily',
+        daily_activity: '🏃 Daily activity',
+        general: '🏆 General'
+      },
+      requirements: {
+        episodes_completed: 'Complete {value} episodes',
+        perfect_completion: 'Complete an episode with 95%+ accuracy',
+        perfect_completions: 'Complete {value} episodes with 95%+ accuracy',
+        high_speed_time: 'Listen for {time} at 2x speed',
+        high_speed_listening_time: 'Listen for {time} at 2x speed',
+        current_streak: 'Listen for {value} days in a row',
+        streak_days: 'Listen for {value} days in a row',
+        daily_episodes: 'Listen to {value} episodes in one day',
+        daily_episodes_count: 'Listen to {value} episodes in one day',
+        night_owl_sessions: 'Listen {value} times between 22:00 and 6:00',
+        early_bird_sessions: 'Listen {value} times between 5:00 and 9:00'
+      }
+    },
+
     profile: {
       title: 'My profile',
       accountData: 'Account data',
@@ -512,8 +704,7 @@ export const translations = {
       playbackPreferences: 'Playback preferences',
       defaultSpeed: 'Default playback speed',
       normal: 'Normal',
-      autoplay: 'Autoplay next episode',
-      showCompleted: 'Show completed episodes',
+      // removed from profile UI
       yourSeries: 'Your series',
       allSeries: 'All series',
       selectedSeries: 'Selected series',
@@ -650,6 +841,7 @@ export const translations = {
       loading: 'Chargement...',
       error: 'Erreur',
       success: 'Succès',
+      retry: 'Réessayer',
       cancel: 'Annuler',
       save: 'Enregistrer',
       delete: 'Supprimer',
@@ -913,6 +1105,67 @@ export const translations = {
       completed: 'Terminé'
     },
     
+    achievements: {
+      title: 'Succès',
+      unlockedCount: 'Succès débloqués : {unlocked}/{total}',
+      completed: 'Terminé !',
+      progress: 'Progrès',
+      points: 'points',
+      noAchievements: 'Aucun succès',
+      keepListening: 'Continuez à écouter pour débloquer vos premiers succès !',
+      titles: {
+        niezlomny: 'Inébranlable',
+        'szybki-sluchacz': 'Écouteur rapide',
+        'dokladny-sluchacz': 'Écouteur précis',
+        'nocny-marek': 'Oiseau de nuit',
+        'ranny-ptaszek': 'Lève-tôt',
+        'seria-mistrzowska': 'Maître des séries',
+        'codzienny-sluchacz': 'Auditeur quotidien'
+      },
+      titlesByType: {
+        episodes_completed: 'Maître des épisodes',
+        perfect_completion: 'Écouteur précis',
+        perfect_completions: 'Écouteur précis',
+        high_speed_time: 'Écouteur rapide',
+        high_speed_listening_time: 'Écouteur rapide',
+        current_streak: 'Maître des séries',
+        streak_days: 'Maître des séries',
+        daily_episodes: 'Auditeur quotidien',
+        daily_episodes_count: 'Auditeur quotidien',
+        night_owl_sessions: 'Oiseau de nuit',
+        early_bird_sessions: 'Lève-tôt'
+      },
+      categories: {
+        episodes: '🎧 Pour les épisodes',
+        time: "⏰ Pour le temps d'écoute",
+        favorites: '❤️ Pour les favoris',
+        special: '⭐ Spéciaux',
+        speed: '⚡ Vitesse',
+        playback_speed: "🚀 Vitesse de lecture",
+        precision: '🎯 Précision',
+        patterns: "🕐 Modèles temporels",
+        time_patterns: "🌙 Modèles temporels",
+        streak: '🔥 Série',
+        streaks: '💪 Persévérance',
+        daily: '📅 Quotidien',
+        daily_activity: '🏃 Activité quotidienne',
+        general: '🏆 Général'
+      },
+      requirements: {
+        episodes_completed: 'Terminer {value} épisodes',
+        perfect_completion: 'Terminer un épisode avec 95%+ de précision',
+        perfect_completions: 'Terminer {value} épisodes avec 95%+ de précision',
+        high_speed_time: "Écouter pendant {time} en 2x",
+        high_speed_listening_time: "Écouter pendant {time} en 2x",
+        current_streak: 'Écouter pendant {value} jours consécutifs',
+        streak_days: 'Écouter pendant {value} jours consécutifs',
+        daily_episodes: 'Écouter {value} épisodes en une journée',
+        daily_episodes_count: 'Écouter {value} épisodes en une journée',
+        night_owl_sessions: "Écouter {value} fois entre 22:00 et 6:00",
+        early_bird_sessions: "Écouter {value} fois entre 5:00 et 9:00"
+      }
+    },
+
     profile: {
       title: 'Mon profil',
       accountData: 'Données du compte',
@@ -927,8 +1180,7 @@ export const translations = {
       playbackPreferences: 'Préférences de lecture',
       defaultSpeed: 'Vitesse de lecture par défaut',
       normal: 'Normale',
-      autoplay: 'Lecture automatique de l\'épisode suivant',
-      showCompleted: 'Afficher les épisodes terminés',
+      // removed from profile UI
       yourSeries: 'Vos séries',
       allSeries: 'Toutes les séries',
       selectedSeries: 'Séries sélectionnées',

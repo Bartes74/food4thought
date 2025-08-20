@@ -185,4 +185,44 @@ describe('Auth Integration Tests', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('POST /api/auth/logout', () => {
+    it('should logout user successfully', async () => {
+      const response = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+    });
+
+    it('should return 401 for unauthenticated logout', async () => {
+      const response = await request(app)
+        .post('/api/auth/logout');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('POST /api/auth/refresh', () => {
+    it('should refresh token successfully', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('token');
+      expect(response.body).toHaveProperty('user');
+    });
+
+    it('should return 401 for invalid refresh token', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .set('Authorization', 'Bearer invalid-token');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
 }); 

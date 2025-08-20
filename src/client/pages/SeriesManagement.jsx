@@ -170,7 +170,7 @@ const SeriesManagement = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie...</p>
+            <p className="mt-4 text-light-textSecondary dark:text-gray-400">{t('common.loading')}</p>
           </div>
         </div>
       </Layout>
@@ -182,7 +182,7 @@ const SeriesManagement = () => {
       <div className="max-w-6xl mx-auto p-6" data-testid="series-management">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-light-text dark:text-white">
-            Zarządzanie seriami
+            {t('series.management')}
           </h1>
           
           {isAdmin && (
@@ -190,7 +190,7 @@ const SeriesManagement = () => {
               onClick={() => setShowAddModal(true)}
               className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
             >
-              + Dodaj serię
+              {t('series.addSeries')}
             </button>
           )}
         </div>

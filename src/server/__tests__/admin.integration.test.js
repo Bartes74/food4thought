@@ -351,4 +351,72 @@ describe('Admin Integration Tests', () => {
       expect(response.body).toHaveProperty('error');
     });
   });
+
+  describe('GET /api/admin/stats', () => {
+    it('should return system statistics for admin', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('totalUsers');
+      expect(response.body).toHaveProperty('totalEpisodes');
+      expect(response.body).toHaveProperty('totalSeries');
+      expect(response.body).toHaveProperty('totalListeningTime');
+      expect(response.body).toHaveProperty('averageCompletionRate');
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 403 for non-admin user', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('GET /api/admin/users/activity', () => {
+    it('should return user activity for admin', async () => {
+      const response = await request(app)
+        .get('/api/admin/users/activity')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      if (response.body.length > 0) {
+        const activity = response.body[0];
+        expect(activity).toHaveProperty('userId');
+        expect(activity).toHaveProperty('lastActive');
+        expect(activity).toHaveProperty('totalListeningTime');
+        expect(activity).toHaveProperty('episodesCompleted');
+      }
+    });
+
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app)
+        .get('/api/admin/users/activity');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 403 for non-admin user', async () => {
+      const response = await request(app)
+        .get('/api/admin/users/activity')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(403);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
 }); 

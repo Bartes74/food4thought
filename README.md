@@ -1,272 +1,279 @@
-# Food 4 Thought - Aplikacja do słuchania podcastów
+# Food 4 Thought
 
-Aplikacja webowa do słuchania i zarządzania podcastami z zaawansowanym systemem osiągnięć, statystyk i personalizacji.
+Aplikacja do zarządzania i odtwarzania podcastów/audiobooków z zaawansowanym systemem śledzenia postępów, osiągnięć i statystyk.
 
-## 🚀 Funkcjonalności
+## 🚀 Funkcje
 
-### 🎧 Odtwarzanie audio
-- **Odtwarzacz audio** z kontrolami (play/pause, przewijanie, prędkość)
-- **Automatyczne zapisywanie postępu** co 5 sekund
-- **Wznawianie od miejsca ostatniego odtwarzania**
-- **Obsługa różnych prędkości odtwarzania** (0.8x, 1x, 1.25x, 1.5x, 2x)
-- **Tematy odcinków** z automatycznym przełączaniem
-
-### ❤️ System ulubionych
-- **Dodawanie/usuwanie odcinków z ulubionych**
-- **Strona ulubionych** z wyszukiwaniem i grupowaniem według serii
-- **Szybki dostęp** do ulubionych odcinków
-- **Filtrowanie i sortowanie** ulubionych
-
-### 📊 Statystyki użytkownika
-- **Całkowity czas słuchania** w formacie "Dni: 0, 00:03:39"
-- **Liczba ukończonych odcinków**
-- **Odcinki w trakcie słuchania**
-- **Liczba ulubionych odcinków**
-- **Statystyki według serii** z paskami postępu
-- **Lista ukończonych odcinków** z datami i czasem trwania
-- **Szczegółowe metryki** aktywności
-
-### 🏆 System osiągnięć
-- **30 osiągnięć** w 10 kategoriach (po 3 w każdej)
-- **Kreatywne nazwy** z emoji i motywującymi opisami
-- **Szczegółowe informacje o postępie** z procentami
-- **Kategorie osiągnięć**:
-  - ⚡ **Prędkość** - słuchanie z wysoką prędkością
-  - 🚀 **Prędkość odtwarzania** - mistrzostwo w szybkim odtwarzaniu
-  - 🎯 **Dokładność** - precyzja w słuchaniu
-  - 🕐 **Wzorce czasowe** - nawyki słuchania
-  - 🌙 **Wzorce czasowe** - słuchanie o różnych porach
-  - 🔥 **Serie** - konsekwentne serie słuchania
-  - 💪 **Wytrwałość** - regularność i wytrwałość
-  - 📅 **Codzienność** - codzienna aktywność
-  - 🏃 **Aktywność dzienna** - intensywna aktywność
-  - 🏆 **Ogólne** - kamienie milowe
-
-### 🎨 Personalizacja
-- **Tryb ciemny/jasny** z automatycznym przełączaniem
-- **Wybór języka** (polski/angielski)
-- **Kolorowe serie** z indywidualnymi kolorami
-- **Responsywny design** dla wszystkich urządzeń
-
-### 👤 Zarządzanie użytkownikami
-- **Rejestracja i logowanie** z weryfikacją email
-- **Profile użytkowników** z preferencjami
-- **System ról** (użytkownik, admin, super_admin)
-- **Zarządzanie użytkownikami** przez administratorów
-
-### 📱 Panel administratora
-- **Statystyki systemu** z wykresami
-- **Zarządzanie seriami** i odcinkami
-- **Zarządzanie użytkownikami**
-- **System powiadomień**
-- **Monitorowanie aktywności**
+- **🎧 Odtwarzanie audio** - Wbudowany odtwarzacz z kontrolami
+- **📊 Statystyki użytkownika** - Szczegółowe statystyki słuchania
+- **🏆 System osiągnięć** - 30 osiągnięć w 10 kategoriach
+- **❤️ Ulubione** - Dodawanie/usuwanie odcinków do ulubionych
+- **⭐ Oceny** - System oceniania odcinków
+- **📝 Tematy odcinków** - Wyświetlanie tematów z timestampami
+- **🌙 Dark mode** - Obsługa trybu ciemnego
+- **🌍 Wielojęzyczność** - Polski, angielski, francuski
+- **👥 Role użytkowników** - User, Admin, Super Admin
+- **📈 Panel administratora** - Statystyki i zarządzanie
 
 ## 🛠️ Technologie
 
-### Backend
-- **Node.js** z Express.js
-- **SQLite** jako baza danych
-- **JWT** do autoryzacji
-- **bcrypt** do hashowania haseł
-- **Nodemailer** do wysyłania emaili
-
-### Frontend
-- **React 18** z hooks
-- **Vite** jako bundler
-- **Tailwind CSS** do stylowania
-- **Axios** do komunikacji z API
-- **React Router** do nawigacji
-
-### Narzędzia deweloperskie
-- **ESLint** do lintingu
-- **Prettier** do formatowania kodu
-- **Playwright** do testów E2E
-- **Jest** do testów jednostkowych
+- **Backend**: Node.js, Express.js, SQLite
+- **Frontend**: React, Vite, Tailwind CSS
+- **Autoryzacja**: JWT
+- **Testy**: Jest, Playwright
+- **Deployment**: GitHub Actions
 
 ## 📦 Instalacja
 
-### Wymagania
-- Node.js 18+
-- npm lub yarn
-
-### Kroki instalacji
-
-1. **Klonowanie repozytorium**
 ```bash
+# Klonuj repozytorium
 git clone <repository-url>
 cd food4thought
-```
 
-2. **Instalacja zależności**
-```bash
+# Zainstaluj zależności
 npm install
-```
 
-3. **Konfiguracja środowiska**
-```bash
-cp .env.example .env
-# Edytuj .env i ustaw wymagane zmienne
-```
+# Uruchom serwer (port 3001)
+npm start
 
-4. **Inicjalizacja bazy danych**
-```bash
-npm run db:init
-```
-
-5. **Uruchomienie aplikacji**
-```bash
-# Uruchom serwer i klienta jednocześnie
-npm run dev
-
-# Lub osobno:
-npm start          # Serwer na porcie 3001
-npm run client     # Klient na porcie 3000
+# W nowym terminalu uruchom frontend (port 3000)
+npm run client
 ```
 
 ## 🗄️ Struktura bazy danych
 
-### Główne tabele
-- **users** - dane użytkowników
-- **series** - serie podcastów
-- **episodes** - odcinki podcastów
-- **user_progress** - postęp użytkowników
-- **user_favorites** - ulubione odcinki
-- **user_stats** - statystyki użytkowników
-- **listening_sessions** - sesje słuchania
-- **achievements** - osiągnięcia
-- **user_achievements** - postęp w osiągnięciach
+### Tabele główne:
+- `users` - Użytkownicy i ich role
+- `series` - Seriale/podcasty
+- `episodes` - Odcinki
+- `user_progress` - Postęp użytkowników
+- `user_favorites` - Ulubione odcinki
+- `ratings` - Oceny odcinków
+- `user_stats` - Statystyki użytkowników
+- `listening_sessions` - Sesje słuchania
+- `achievements` - Osiągnięcia
+- `user_achievements` - Osiągnięcia użytkowników
 
-## 🎯 System osiągnięć
-
-### Przykładowe osiągnięcia
-- 🏆 **Ekspert** - Ukończ 100 odcinków (500 pkt)
-- ⚡ **Prędkość Światła** - Słuchaj przez 5h z prędkością 2x (50 pkt)
-- 🔥 **Żelazna Wola** - Słuchaj przez 30 dni z rzędu (500 pkt)
-- 🎯 **Mistrz Precyzji** - Ukończ 10 odcinków z 95%+ dokładnością (100 pkt)
-- 🌙 **Nocny Marynarz** - Słuchaj 5 razy między 22:00 a 6:00 (30 pkt)
-
-### Mechanika
-- **Automatyczne śledzenie** postępu podczas słuchania
-- **Real-time aktualizacje** statystyk i osiągnięć
-- **Szczegółowe informacje** o tym, co trzeba zrobić
-- **Punkty i ranking** dla motywacji
-
-## 📊 Statystyki
-
-### Metryki śledzone
-- **Czas słuchania** w sekundach z formatowaniem
-- **Ukończone odcinki** z completion_rate >= 0.9
-- **Serie słuchania** (dni z rzędu)
-- **Wzorce czasowe** (nocne, poranne sesje)
-- **Prędkość odtwarzania** (wysokie prędkości)
-- **Dokładność słuchania** (perfect completions)
-
-### Wyświetlanie
-- **Format czasu**: "Dni: 0, 00:03:39"
-- **Paski postępu** dla serii
-- **Kolorowe wskaźniki** dla różnych metryk
-- **Lista ukończonych odcinków** z datami
-
-## 🔧 API Endpoints
+## 🔌 API Endpoints
 
 ### Autoryzacja
 - `POST /api/auth/login` - Logowanie
 - `POST /api/auth/register` - Rejestracja
-- `GET /api/auth/me` - Sprawdzenie sesji
-- `GET /api/auth/verify-email` - Weryfikacja email
+- `GET /api/auth/me` - Informacje o użytkowniku
 
 ### Odcinki
+- `GET /api/episodes` - Wszystkie odcinki
 - `GET /api/episodes/my` - Odcinki użytkownika
-- `GET /api/episodes/favorites` - Ulubione odcinki
-- `POST /api/episodes/:id/progress` - Zapisywanie postępu
-- `POST /api/episodes/:id/favorite` - Dodawanie do ulubionych
-- `DELETE /api/episodes/:id/favorite` - Usuwanie z ulubionych
+- `GET /api/episodes/:id` - Szczegóły odcinka
+- `GET /api/episodes/:id/topics` - Tematy odcinka
+- `POST /api/episodes/:id/links` - Zapisz tematy (admin)
+- `POST /api/episodes/:id/progress` - Zapisz postęp
+- `POST /api/episodes/:id/favorite` - Dodaj do ulubionych
+- `DELETE /api/episodes/:id/favorite` - Usuń z ulubionych
+- `POST /api/episodes/:id/rating` - Oceń odcinek
 
-### Statystyki
+### Użytkownicy
 - `GET /api/users/:id/stats` - Statystyki użytkownika
-- `GET /api/users/series-stats` - Statystyki według serii
-- `POST /api/achievements/record-session` - Rejestrowanie sesji
+- `PUT /api/users/:id/preferences` - Aktualizuj preferencje
 
 ### Osiągnięcia
-- `GET /api/achievements` - Lista osiągnięć z postępem
-- `POST /api/achievements/recalculate-stats` - Przeliczanie statystyk (admin)
+- `GET /api/achievements` — zwraca listę osiągnięć z postępem użytkownika oraz statystyki. Każde osiągnięcie zawiera m.in. pola:
+  - `requirement_type`, `requirement_value`, `category`, `is_hidden`
+  - `progress_value` (wyliczane live z `listening_sessions`), `completed`, `earned_at`
+  - przykładowe typy: `high_speed_listening_time`, `perfect_completions`, `night_owl_sessions`, `early_bird_sessions`, `daily_episodes_count`, `episodes_completed`, `current_streak`
+- `POST /api/achievements/record-session` — zapisuje sesję słuchania i aktualizuje statystyki/osiągnięcia. Wymagane pola body:
+  ```json
+  {
+    "episodeId": 123,
+    "startTime": "2025-07-31T12:00:00.000Z",
+    "endTime": "2025-07-31T12:30:00.000Z",
+    "playbackSpeed": 1.5,
+    "completionRate": 1.0,
+    "durationSeconds": 1800
+  }
+  ```
+
+### Odcinki (zarządzanie tematami)
+- `GET /api/episodes/:id/topics` — parsuje i zwraca tematy z pliku arkusza (`public/arkusze/seria{series_id}/{filename}.txt`).
+- `POST /api/episodes/:id/topics` (admin) — zapisuje tematy do wyżej wymienionego pliku (`content` w body).
+
+Uwaga: obecnie backend nie udostępnia `POST /api/episodes` ani `PUT /api/episodes/:id` do ogólnej edycji metadanych — UI zarządzania odcinkami wykorzystuje zapis/odczyt tematów przez `/topics`.
+
+### Administrator
+- `GET /api/admin-stats` - Statystyki systemu
+- `GET /api/admin/users` - Lista użytkowników
+
+## 📁 Struktura plików
+
+```
+food4thought/
+├── src/
+│   ├── client/          # Frontend React
+│   │   ├── components/  # Komponenty
+│   │   ├── pages/       # Strony
+│   │   ├── contexts/    # Konteksty React
+│   │   └── styles/      # Style CSS
+│   └── server/          # Backend Node.js
+│       ├── routes/      # Endpointy API
+│       ├── middleware/  # Middleware
+│       ├── models/      # Modele danych
+│       └── utils/       # Narzędzia
+├── public/
+│   ├── audio/           # Pliki audio
+│   ├── arkusze/         # Pliki z tematami
+│   └── series-images/   # Obrazy serii
+└── data/                # Baza danych SQLite
+```
 
 ## 🧪 Testy
 
-### Uruchomienie testów
 ```bash
 # Testy jednostkowe
 npm test
 
+# Testy integracyjne
+npm run test:integration
+
 # Testy E2E
 npm run test:e2e
 
-# Testy z coverage
+# Pokrycie testów
 npm run test:coverage
 ```
 
-### Struktura testów
-- **Unit tests** - testy jednostkowe komponentów
-- **Integration tests** - testy integracji API
-- **E2E tests** - testy end-to-end z Playwright
-
 ## 🚀 Deployment
 
-### Produkcja
-```bash
-# Build aplikacji
-npm run build
+Aplikacja używa GitHub Actions do automatycznego deploymentu:
 
-# Uruchomienie serwera produkcyjnego
-npm start
-```
-
-### Docker (opcjonalnie)
-```bash
-# Build obrazu
-docker build -t food4thought .
-
-# Uruchomienie kontenera
-docker run -p 3001:3001 food4thought
-```
+1. Push do `main` branch
+2. Automatyczne testy
+3. Build aplikacji
+4. Deployment na serwer
 
 ## 📝 Changelog
 
 ### v2.2.0 (Aktualna)
-- ✅ **System osiągnięć** - 30 osiągnięć w 10 kategoriach
-- ✅ **Statystyki użytkownika** - szczegółowe metryki aktywności
-- ✅ **Lista ukończonych odcinków** - z datami i czasem trwania
-- ✅ **System ulubionych** - pełna funkcjonalność z wyszukiwaniem
-- ✅ **Naprawione liczenie statystyk** - prawidłowe obliczanie ukończonych odcinków
-- ✅ **Ulepszone UI** - lepszy kontrast w trybie ciemnym
-- ✅ **Organizacja osiągnięć** - kategorie z opisami i postępem
+- ✅ System ulubionych
+- ✅ Zaawansowane statystyki użytkownika
+- ✅ System osiągnięć (30 osiągnięć w 10 kategoriach)
+- ✅ Lista ukończonych odcinków
+- ✅ Ulepszenia dark mode
+- ✅ Organizacja strony osiągnięć
+- ✅ Zapisywanie tematów odcinków
+- ♻️ Usunięto automatyczne odtwarzanie i wyczyszczono związany kod/DB
+- 🌍 Usprawnienia i18n (EN/FR), w tym tłumaczenia nazw osiągnięć
+- ✅ Aktualizacja dokumentacji
 
 ### v2.1.0
-- System autoryzacji z JWT
-- Panel administratora
-- Zarządzanie seriami i odcinkami
+- ✅ Podstawowe statystyki
+- ✅ System ocen
+- ✅ Dark mode
+- ✅ Wielojęzyczność
 
 ### v2.0.0
-- Podstawowa funkcjonalność odtwarzania
-- System użytkowników
-- Baza danych SQLite
+- ✅ Podstawowa funkcjonalność
+- ✅ Autoryzacja
+- ✅ Odtwarzanie audio
 
-## 🤝 Współtwórcy
+## 🔮 Planowane funkcje
 
-- **Bartek** - Główny deweloper
-- **AI Assistant** - Pomoc w implementacji funkcjonalności
+### 🎯 Funkcje priorytetowe
+
+#### 1. **System powiadomień**
+- Powiadomienia o nowych odcinkach w ulubionych seriach
+- Przypomnienia o przerwanych odcinkach
+- Powiadomienia o osiągnięciach
+- Email/SMS notifications
+
+#### 2. **Zaawansowane statystyki**
+- Wykresy słuchania w czasie (dziennie/tygodniowo/miesięcznie)
+- Analiza preferencji (ulubione serie, godziny słuchania)
+- Eksport danych do CSV/PDF
+- Porównanie z innymi użytkownikami
+
+#### 3. **System rekomendacji**
+- "Podobne odcinki" na podstawie historii słuchania
+- "Może Ci się spodobać" na podstawie ocen
+- Personalizowane rekomendacje
+
+#### 4. **Funkcje społecznościowe**
+- Komentarze do odcinków
+- Recenzje użytkowników
+- System follow/unfollow innych użytkowników
+- Udostępnianie list odcinków
+
+### 🔧 Funkcje techniczne
+
+#### 5. **Zaawansowane zarządzanie odcinkami**
+- Bulk import/export odcinków
+- Automatyczne tagowanie
+- System kategorii i tagów
+- Wyszukiwanie zaawansowane
+
+#### 6. **Ulepszenia odtwarzacza**
+- Playlisty
+- Sleep timer
+- Kontrola gestami
+- Mini player
+
+#### 7. **Backup i synchronizacja**
+- Synchronizacja między urządzeniami
+- Backup ustawień i postępów
+- Eksport/import danych użytkownika
+
+### 📱 Funkcje mobilne
+
+#### 8. **Aplikacja mobilna**
+- PWA (Progressive Web App)
+- Offline mode
+- Push notifications
+- Synchronizacja z urządzeniami
+
+#### 9. **Integracje zewnętrzne**
+- Import z Spotify/Apple Podcasts
+- Integracja z kalendarzem
+- Eksport do Notion/Roam Research
+
+### 🎨 Funkcje UX/UI
+
+#### 10. **Personalizacja**
+- Własne motywy kolorystyczne
+- Układ interfejsu (list/grid)
+- Skróty klawiszowe
+- Dark/Light mode toggle
+
+#### 11. **Funkcje dostępności**
+- Screen reader support
+- Kontrasty dla daltonistów
+- Skróty klawiszowe
+- Voice commands
+
+### 📊 Funkcje analityczne
+
+#### 12. **Dashboard administratora**
+- Analityka użytkowników
+- Popularne odcinki/serie
+- Raporty aktywności
+- Zarządzanie treścią
+
+#### 13. **System gamifikacji**
+- Wyzwania (np. "Słuchaj 7 dni z rzędu")
+- Rankingi użytkowników
+- System punktów
+- Odznaki za specjalne osiągnięcia
+
+## 🤝 Kontrybucja
+
+1. Fork projektu
+2. Utwórz feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit zmian (`git commit -m 'Add some AmazingFeature'`)
+4. Push do branch (`git push origin feature/AmazingFeature`)
+5. Otwórz Pull Request
 
 ## 📄 Licencja
 
-MIT License - zobacz plik [LICENSE](LICENSE) dla szczegółów.
-
-## 🆘 Wsparcie
-
-W przypadku problemów:
-1. Sprawdź [Issues](https://github.com/username/food4thought/issues)
-2. Utwórz nowy issue z opisem problemu
-3. Dołącz logi błędów i kroki reprodukcji
+Ten projekt jest licencjonowany pod MIT License.
 
 ---
 
-**Food 4 Thought** - Twoja osobista biblioteka podcastów z gamifikacją! 🎧🏆 
+**Food 4 Thought** - Twoja osobista biblioteka audio z inteligentnym systemem śledzenia postępów! 🎧✨ 

@@ -163,13 +163,14 @@ describe('Integration Tests', () => {
       expect(response.body).toHaveProperty('favorite_episodes');
     });
 
-    it('should return series statistics', async () => {
+    it('should include series statistics in user stats', async () => {
       const response = await request(app)
-        .get('/api/users/series-stats')
+        .get('/api/users/2/stats')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveProperty('seriesStats');
+      expect(Array.isArray(response.body.seriesStats)).toBe(true);
     });
   });
 
@@ -181,6 +182,72 @@ describe('Integration Tests', () => {
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
+      
+      if (response.body.length > 0) {
+        const achievement = response.body[0];
+        expect(achievement).toHaveProperty('id');
+        expect(achievement).toHaveProperty('name');
+        expect(achievement).toHaveProperty('description');
+        expect(achievement).toHaveProperty('category');
+        expect(achievement).toHaveProperty('progress');
+        expect(achievement).toHaveProperty('completed');
+      }
+    });
+
+    it('should record listening session for achievements', async () => {
+      const sessionData = {
+        episodeId: 1,
+        startTime: '2024-01-01T00:00:00Z',
+        endTime: '2024-01-01T00:01:00Z',
+        playbackSpeed: 1.0,
+        completionRate: 0.95,
+        durationSeconds: 60
+      };
+
+      const response = await request(app)
+        .post('/api/achievements/record-session')
+        .set('Authorization', 'Bearer user-token')
+        .send(sessionData);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+    });
+
+    it('should return 401 for unauthenticated record-session request', async () => {
+      const sessionData = {
+        episodeId: 1,
+        startTime: '2024-01-01T00:00:00Z',
+        endTime: '2024-01-01T00:01:00Z',
+        playbackSpeed: 1.0,
+        completionRate: 0.95,
+        durationSeconds: 60
+      };
+
+      const response = await request(app)
+        .post('/api/achievements/record-session')
+        .send(sessionData);
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return achievements with categories', async () => {
+      const response = await request(app)
+        .get('/api/achievements')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      
+      if (response.body.length > 0) {
+        const achievement = response.body[0];
+        expect(achievement).toHaveProperty('id');
+        expect(achievement).toHaveProperty('name');
+        expect(achievement).toHaveProperty('description');
+        expect(achievement).toHaveProperty('category');
+        expect(achievement).toHaveProperty('progress');
+        expect(achievement).toHaveProperty('completed');
+      }
     });
   });
 }); 

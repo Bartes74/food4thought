@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -10,7 +10,7 @@ import axios from 'axios'
 
 const HomePage = () => {
   const { user } = useAuth()
-  const { t } = useLanguage()
+  const { t, formatDate } = useLanguage()
   const { isDarkMode } = useTheme()
   
   const [series, setSeries] = useState([])
@@ -20,6 +20,7 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedSeriesId, setSelectedSeriesId] = useState(null)
+  const [autoStartId, setAutoStartId] = useState(null)
 
   
   // State dla wyszukiwarki
@@ -33,8 +34,12 @@ const HomePage = () => {
   })
   const [isSearching, setIsSearching] = useState(false)
   const [sortBy, setSortBy] = useState('date') // 'date', 'rating', 'title'
+  const initializedRef = useRef(false)
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     const initializeApp = async () => {
       await fetchData()
       
@@ -86,10 +91,16 @@ const HomePage = () => {
     } else {
       // Filtruj według preferencji użytkownika (jeśli nie ma wybranej serii)
       const activeSeries = (user && user.preferences && user.preferences.activeSeries) || 'all';
+      const showCompleted = (user && user.preferences && (user.preferences.showCompleted || user.preferences.show_completed)) ?? true;
       
       if (activeSeries !== 'all' && Array.isArray(activeSeries)) {
         const activeSeriesIds = activeSeries.map(id => parseInt(id));
         filtered = filtered.filter(episode => activeSeriesIds.includes(episode.series_id));
+      }
+
+      // Preferencja: ukryj ukończone odcinki, jeśli użytkownik tak ustawił
+      if (!showCompleted) {
+        filtered = filtered.filter(episode => !episode.completed);
       }
     }
     
@@ -415,160 +426,42 @@ const HomePage = () => {
   }
 
   const handleEpisodeSelect = (episodeId) => {
+    setAutoStartId(episodeId)
     loadEpisodeDetails(episodeId)
   }
 
-  const handleEpisodeEnd = async () => {
-    console.log('=== HOMEPAGE handleEpisodeEnd START ===');
-    console.log('Current episode:', currentEpisode);
-    console.log('User preferences:', user?.preferences);
-    
-    // Zapisz jako ukończony
-    if (currentEpisode) {
-      console.log('Saving episode progress for:', currentEpisode.id);
-      const token = localStorage.getItem('token')
-      await fetch(`/api/episodes/${currentEpisode.id}/progress`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          position: 0,
-          completed: true
-        })
-      })
-      
-      // Pobierz preferencje użytkownika
-      const autoplay = (user && user.preferences && (user.preferences.autoPlay || user.preferences.autoplay)) || false;
-      console.log('Autoplay setting:', autoplay);
-      
-      if (autoplay) {
-        console.log('Autoplay enabled - searching for next episode');
-        // Pobierz świeże dane przed znalezieniem następnego odcinka
-        try {
-          console.log('Fetching fresh episodes data...');
-          const token = localStorage.getItem('token')
-          const episodesRes = await fetch('/api/episodes/my', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          const freshEpisodes = await episodesRes.json()
-          console.log('Fresh episodes:', freshEpisodes);
-          
-          // Znajdź następny odcinek zgodnie z ULEPSZONĄ logiką
-          let nextEpisode = null;
-          
-          // Pobierz serie według preferencji użytkownika
-          const activeSeries = (user && user.preferences && user.preferences.activeSeries) || 'all';
-          console.log('Active series preference:', activeSeries);
-          
-          // Wszystkie dostępne odcinki (nowe + w trakcie) z wybranych serii
-          let availableEpisodes = [
-            ...(freshEpisodes.new || []), 
-            ...(freshEpisodes.inProgress || [])
-          ].filter(e => e.id !== currentEpisode.id); // Usuń aktualny odcinek
-          
-          console.log('All available episodes before series filter:', availableEpisodes);
-          
-          // Filtruj według wybranych serii (jeśli nie "all")
-          if (activeSeries !== 'all' && Array.isArray(activeSeries)) {
-            const activeSeriesIds = activeSeries.map(id => parseInt(id));
-            availableEpisodes = availableEpisodes.filter(e => 
-              activeSeriesIds.includes(e.series_id)
-            );
-            console.log('Filtered episodes by active series:', availableEpisodes);
-            console.log('Active series IDs:', activeSeriesIds);
-          }
-          
-          if (availableEpisodes.length > 0) {
-            // STRATEGIA WYBORU NASTĘPNEGO ODCINKA:
-            
-            // 1. PRIORYTET: Odcinki w trakcie z tej samej serii
-            const inProgressSameSeries = availableEpisodes.filter(e => 
-              e.series_id === currentEpisode.series_id && e.position > 0
-            );
-            
-            // 2. PRIORYTET: Nowe odcinki z tej samej serii (najstarsze pierwsze)
-            const newSameSeries = availableEpisodes.filter(e => 
-              e.series_id === currentEpisode.series_id && (!e.position || e.position === 0)
-            ).sort((a, b) => new Date(a.date_added) - new Date(b.date_added)); // Od najstarszych
-            
-            // 3. PRIORYTET: Odcinki w trakcie z innych serii (najstarsze pierwsze)
-            const inProgressOtherSeries = availableEpisodes.filter(e => 
-              e.series_id !== currentEpisode.series_id && e.position > 0
-            ).sort((a, b) => new Date(a.date_added) - new Date(b.date_added));
-            
-            // 4. PRIORYTET: Nowe odcinki z innych serii (najstarsze pierwsze)
-            const newOtherSeries = availableEpisodes.filter(e => 
-              e.series_id !== currentEpisode.series_id && (!e.position || e.position === 0)
-            ).sort((a, b) => new Date(a.date_added) - new Date(b.date_added)); // Od najstarszych
-            
-            console.log('Priority 1 - In progress same series:', inProgressSameSeries);
-            console.log('Priority 2 - New same series (oldest first):', newSameSeries);
-            console.log('Priority 3 - In progress other series (oldest first):', inProgressOtherSeries);
-            console.log('Priority 4 - New other series (oldest first):', newOtherSeries);
-            
-            // Wybierz według priorytetu
-            if (inProgressSameSeries.length > 0) {
-              nextEpisode = inProgressSameSeries[0];
-              console.log('Selected: In progress from same series');
-            } else if (newSameSeries.length > 0) {
-              nextEpisode = newSameSeries[0];
-              console.log('Selected: New from same series (oldest)');
-            } else if (inProgressOtherSeries.length > 0) {
-              nextEpisode = inProgressOtherSeries[0];
-              console.log('Selected: In progress from other series (oldest)');
-            } else if (newOtherSeries.length > 0) {
-              nextEpisode = newOtherSeries[0];
-              console.log('Selected: New from other series (oldest)');
-            }
-          }
-          
-          console.log('Final next episode selection:', nextEpisode);
-          
-          if (nextEpisode) {
-            console.log('Starting autoplay sequence for episode:', nextEpisode.id, '-', nextEpisode.title);
-            // Opóźnienie 2 sekundy przed automatycznym odtworzeniem
-            setTimeout(() => {
-              console.log('Loading next episode details...');
-              loadEpisodeDetails(nextEpisode.id);
-              
-              // Pobierz informacje o serii dla następnego odcinka
-              if (nextEpisode.series_id) {
-                fetchSeriesInfo(nextEpisode.series_id);
-              }
-              
-              // Automatycznie rozpocznij odtwarzanie po załadowaniu
-              setTimeout(() => {
-                const audioElement = document.querySelector('audio');
-                console.log('Audio element found:', !!audioElement);
-                if (audioElement) {
-                  console.log('Attempting to play audio...');
-                  audioElement.play()
-                    .then(() => console.log('✅ Autoplay successful'))
-                    .catch(e => console.log('❌ Autoplay blocked:', e));
-                }
-              }, 1500);
-            }, 2000);
-          } else {
-            console.log('🎉 All episodes completed! No more episodes for autoplay');
-          }
-        } catch (error) {
-          console.error('❌ Error during autoplay:', error);
-        }
-      } else {
-        console.log('❌ Autoplay disabled in user preferences');
+  // Odbierz żądanie z autoPlay do odtworzenia następnego odcinka (z informacją o auto-starcie)
+  useEffect(() => {
+    const handler = (e) => {
+      const nextId = e?.detail?.episodeId;
+      const autoStart = e?.detail?.autoStart;
+      if (nextId) {
+        if (autoStart) setAutoStartId(nextId);
+        loadEpisodeDetails(nextId);
       }
-      
-      // Odśwież listę na końcu
-      console.log('Refreshing episodes list...');
-      fetchData()
-    } else {
-      console.log('❌ No current episode to process');
-    }
-    
-    console.log('=== HOMEPAGE handleEpisodeEnd END ===');
-  }
+    };
+    window.addEventListener('request-play-episode', handler);
+    return () => window.removeEventListener('request-play-episode', handler);
+  }, []);
+
+  // Po ukończeniu odcinka – odśwież listy (aby zniknął z "W trakcie")
+  useEffect(() => {
+    const refresh = () => {
+      refreshEpisodeRatings();
+      fetchData();
+    };
+    window.addEventListener('episode-completed', refresh);
+    return () => window.removeEventListener('episode-completed', refresh);
+  }, []);
+
+  // Callback zmiany odcinka (bez logiki autoplay)
+  const handleEpisodeChange = (newEpisode) => {
+    setCurrentEpisode(newEpisode);
+    // Przewiń do odtwarzacza
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Usunięto: stary flow autoodtwarzania (przeniesiony do AudioPlayer)
   
 
   const allEpisodes = [
@@ -597,9 +490,11 @@ const HomePage = () => {
         <section className="mb-8">
           <AudioPlayer 
             episode={currentEpisode} 
-            onEpisodeEnd={handleEpisodeEnd}
             seriesInfo={seriesInfo}
             onRatingChange={fetchData}
+            onEpisodeChange={handleEpisodeChange}
+            requestedAutoStartId={autoStartId}
+            onAutoStartConsumed={() => setAutoStartId(null)}
           />
         </section>
 
@@ -607,7 +502,7 @@ const HomePage = () => {
         <section className="mb-8">
           <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 shadow-lg`}>
             <h2 className="text-xl font-bold text-light-text dark:text-white mb-4">
-              🔍 Wyszukaj odcinki
+              🔍 {t('homePage.searchEpisodes')}
             </h2>
             
             {/* Główne pole wyszukiwania */}
@@ -618,7 +513,7 @@ const HomePage = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Wyszukaj w tytułach i opisach odcinków..."
+                  placeholder={t('homePage.searchPlaceholder')}
                   data-testid="search-input"
                   className={`w-full px-4 py-3 pl-10 rounded-lg border ${
                     isDarkMode 
@@ -639,10 +534,10 @@ const HomePage = () => {
                 {isSearching ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Szukam...
+                    {t('homePage.searching')}
                   </div>
                 ) : (
-                  'Szukaj'
+                  t('homePage.search')
                 )}
               </button>
               
@@ -653,7 +548,7 @@ const HomePage = () => {
                     ? 'bg-primary text-white' 
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                 }`}
-                title="Filtry zaawansowane"
+                title={t('homePage.advancedFilters')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
@@ -676,13 +571,13 @@ const HomePage = () => {
             {/* Filtry zaawansowane */}
             {searchFilters.showAdvanced && (
               <div className={`${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} rounded-lg p-4 mb-4`}>
-                <h3 className="font-semibold mb-3 text-light-text dark:text-white">Filtry zaawansowane</h3>
+                <h3 className="font-semibold mb-3 text-light-text dark:text-white">{t('homePage.advancedFilters')}</h3>
                 
                 <div className="grid md:grid-cols-3 gap-4">
                   {/* Filtr serii */}
                   <div>
                     <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
-                      Seria
+                      {t('homePage.series')}
                     </label>
                     <select
                       value={searchFilters.seriesId}
@@ -693,7 +588,7 @@ const HomePage = () => {
                           : 'bg-white border-light-border'
                       } focus:ring-2 focus:ring-primary outline-none`}
                     >
-                      <option value="all">Wszystkie serie</option>
+                      <option value="all">{t('homePage.allSeries')}</option>
                       {series.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
@@ -703,7 +598,7 @@ const HomePage = () => {
                   {/* Data od */}
                   <div>
                     <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
-                      Data od
+                      {t('homePage.dateFrom')}
                     </label>
                     <input
                       type="date"
@@ -720,7 +615,7 @@ const HomePage = () => {
                   {/* Data do */}
                   <div>
                     <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
-                      Data do
+                      {t('homePage.dateTo')}
                     </label>
                     <input
                       type="date"
@@ -742,10 +637,10 @@ const HomePage = () => {
               <div className="mt-6" data-testid="search-results">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-light-text dark:text-white">
-                    Wyniki wyszukiwania
+                    {t('homePage.searchResults')}
                   </h3>
                   <span className="text-sm text-gray-500">
-                    Znaleziono {searchResults.total || 0} odcinków dla "{searchQuery}"
+                    {t('homePage.foundEpisodes').replace('{count}', String(searchResults.total || 0)).replace('{query}', searchQuery)}
                   </span>
                 </div>
                 
@@ -778,10 +673,10 @@ const HomePage = () => {
                             )}
                             
                             <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <span>📅 {new Date(episode.date_added).toLocaleDateString('pl-PL')}</span>
-                              {episode.completed && <span className="text-green-500">✅ Ukończony</span>}
+                              <span>📅 {formatDate(episode.date_added)}</span>
+                              {episode.completed && <span className="text-green-500">✅ {t('favorites.completed')}</span>}
                               {episode.position > 0 && !episode.completed && (
-                                <span className="text-yellow-500">▶️ W trakcie</span>
+                                <span className="text-yellow-500">▶️ {t('favorites.inProgress')}</span>
                               )}
                               {episode.is_favorite && <span className="text-red-500">❤️ Ulubiony</span>}
                             </div>
@@ -799,8 +694,8 @@ const HomePage = () => {
                 ) : (
                   <div className="text-center py-8">
                     <div className="text-4xl mb-2">🔍</div>
-                    <p className="text-gray-500">Nie znaleziono odcinków pasujących do zapytania</p>
-                    <p className="text-sm text-gray-400 mt-1">Spróbuj zmienić kryteria wyszukiwania</p>
+                    <p className="text-gray-500">{t('homePage.noResults')}</p>
+                    <p className="text-sm text-gray-400 mt-1">{t('homePage.tryDifferentCriteria')}</p>
                   </div>
                 )}
               </div>
@@ -815,13 +710,13 @@ const HomePage = () => {
             {selectedSeriesId && (
               <div className="mb-6 flex items-center gap-3">
                 <span className={`text-lg ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Odcinki z serii: <strong>{getSelectedSeriesName()}</strong>
+                  {t('homePage.episodesFromSeries').replace('{seriesName}', getSelectedSeriesName() || '')}
                 </span>
                 <button
                   onClick={() => setSelectedSeriesId(null)}
                   className="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                 >
-                  Pokaż wszystkie
+                  {t('homePage.showAll')}
                 </button>
               </div>
             )}
@@ -831,7 +726,7 @@ const HomePage = () => {
               <section className="mb-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-light-text dark:text-white">
-                    Nowe odcinki
+                    {t('homePage.newEpisodes')}
                     {selectedSeriesId && ` (${getFilteredEpisodes(episodes.new || []).length})`}
                   </h2>
                   <div className="flex items-center gap-2">
@@ -867,7 +762,7 @@ const HomePage = () => {
                                 {episode.title}
                               </h3>
                               <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                • {episode.series_name} • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                                • {episode.series_name} • {formatDate(episode.date_added)}
                               </span>
                             </div>
                             <div className="mt-2">
@@ -886,7 +781,7 @@ const HomePage = () => {
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <span className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                              Nowy
+                              {t('favorites.new')}
                             </span>
                             <button
                               onClick={(e) => toggleFavorite(episode.id, e)}
@@ -919,7 +814,7 @@ const HomePage = () => {
               <section className="mb-8">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-light-text dark:text-white">
-                    W trakcie słuchania
+                    {t('homePage.inProgress')}
                     {selectedSeriesId && ` (${getFilteredEpisodes(episodes.inProgress || []).length})`}
                   </h2>
                   <div className="flex items-center gap-2">
@@ -955,7 +850,7 @@ const HomePage = () => {
                                 {episode.title}
                               </h3>
                               <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                • {episode.series_name} • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                                • {episode.series_name} • {formatDate(episode.date_added)}
                               </span>
                             </div>
                             <div className="mt-2">
@@ -974,7 +869,7 @@ const HomePage = () => {
                           </div>
                           <div className="flex items-center gap-2 ml-4">
                             <span className="text-xs px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 rounded">
-                              W trakcie
+                              {t('favorites.inProgress')}
                             </span>
                             <button
                               onClick={(e) => toggleFavorite(episode.id, e)}
@@ -1001,20 +896,6 @@ const HomePage = () => {
                 </div>
               </section>
             )}
-               {/* Przycisk Historia - pod listami odcinków */}
-            <div className="flex justify-center mb-8">
-              <Link
-                to="/stats?tab=history"
-                className="px-6 py-3 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                data-testid="stats-link"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Historia odsłuchanych odcinków
-              </Link>
-            </div>
           </>
         )}
              
@@ -1031,7 +912,7 @@ const HomePage = () => {
           return seriesToShow.length > 0 && (
             <section className="mt-12">
               <h2 className="text-2xl font-bold text-light-text dark:text-white mb-6">
-                {activeSeries === 'all' ? 'Twoje Serie' : 'Wybrane Serie'}
+                {activeSeries === 'all' ? t('homePage.yourSeries') : t('homePage.selectedSeries')}
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {seriesToShow.map((seria) => (
@@ -1064,7 +945,7 @@ const HomePage = () => {
                   
                   <h3 className="font-semibold text-light-text dark:text-white">{seria.name}</h3>
                   <p className="text-sm text-light-textSecondary dark:text-gray-400 mt-1">
-                    {seria.episode_count || 0} odcinków
+                    {t('homePage.episodesCount').replace('{count}', String(seria.episode_count || 0))}
                   </p>
                   {/* Liczba nowych odcinków w tej serii */}
                   {(() => {
@@ -1073,7 +954,7 @@ const HomePage = () => {
                     const totalActive = newInSeries + inProgressInSeries;
                     return totalActive > 0 && (
                       <span className="inline-block mt-2 text-xs px-2 py-1 bg-primary/10 text-primary rounded">
-                        {totalActive} do odsłuchania
+                        {t('homePage.toListen').replace('{count}', String(totalActive))}
                       </span>
                     )
                   })()}
@@ -1084,7 +965,7 @@ const HomePage = () => {
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      Wybrana seria
+                      {t('homePage.selectedSeries')}
                     </div>
                   )}
                 </div>

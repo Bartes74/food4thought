@@ -98,17 +98,28 @@ npx playwright test --project="Mobile Chrome"
 - ✅ Logi systemowe
 - ✅ Eksport danych
 
-### 5. Responsywność i dostępność (`accessibility.spec.js`)
-- ✅ Urządzenia mobilne
-- ✅ Tablety
-- ✅ Duże ekrany
-- ✅ Tryb ciemny/jasny
+### 5. Automatyczne odtwarzanie (`episodes.spec.js`)
+- ✅ Toggle automatycznego odtwarzania
+- ✅ Włączanie/wyłączanie funkcji
+- ✅ Obsługa zakończenia odcinka
+- ✅ Przejście do następnego odcinka
+- ✅ Powiadomienia o następnym odcinku
+- ✅ Obsługa braku kolejnych odcinków
+
+### 6. Dostępność i responsywność (`accessibility.spec.js`)
+- ✅ Etykiety ARIA dla przycisków
+- ✅ Dostępność kontrolek odtwarzacza
+- ✅ Dostępność automatycznego odtwarzania
+- ✅ Obsługa powiadomień
+- ✅ Responsywność na różnych urządzeniach
 - ✅ Nawigacja klawiaturą
-- ✅ Etykiety ARIA
-- ✅ Screen reader support
-- ✅ Kontrast i czytelność
-- ✅ Skróty klawiszowe
-- ✅ Gesty dotykowe
+
+### 7. Zarządzanie sesją (`auth.spec.js`)
+- ✅ Automatyczne odświeżanie tokenu
+- ✅ Obsługa wygaśnięcia sesji
+- ✅ Obsługa nieprawidłowego tokenu
+- ✅ Zachowanie sesji po odświeżeniu
+- ✅ Bezpieczne wylogowanie
 
 ## 🔧 Konfiguracja
 

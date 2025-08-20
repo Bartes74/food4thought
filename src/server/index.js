@@ -32,6 +32,9 @@ app.use('/audio', express.static(path.join(__dirname, '../../public/audio')));
 app.use('/arkusze', express.static(path.join(__dirname, '../../public/arkusze')));
 app.use('/series-images', express.static(path.join(__dirname, '../../public/series-images')));
 
+// Serwuj aplikację React
+app.use(express.static(path.join(__dirname, '../../dist')));
+
 // Trasy API
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -44,8 +47,7 @@ app.use('/api/auth', apiLimiter, authRoutes);
 app.use('/api/series', apiLimiter, seriesRoutes);
 app.use('/api/episodes', apiLimiter, episodesRoutes);
 app.use('/api/users', apiLimiter, usersRoutes);
-app.use('/api/admin-stats', apiLimiter, adminStatsRouter);
-app.use('/api/admin', apiLimiter, adminStatsRouter); // Dodane dla kompatybilności z frontendem
+app.use('/api/admin', apiLimiter, adminStatsRouter);
 app.use('/api/achievements', apiLimiter, achievementsRoutes);
 app.use('/api/notifications', apiLimiter, notificationsRouter);
 
@@ -54,9 +56,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Food 4 Thought API działa!' });
 });
 
-// Obsługa błędów 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Nie znaleziono strony' });
+// Obsługa błędów 404 - dla API zwróć JSON, dla innych ścieżek serwuj React app
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Nie znaleziono endpointu API' });
+});
+
+// Dla wszystkich innych ścieżek serwuj aplikację React
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../dist/index.html'));
 });
 
 // Globalny handler błędów

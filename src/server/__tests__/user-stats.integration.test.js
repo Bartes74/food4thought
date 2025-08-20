@@ -27,23 +27,15 @@ describe('User Stats Integration Tests', () => {
       expect(response.status).toBe(403);
       expect(response.body).toHaveProperty('error');
     });
-  });
 
-  describe('GET /api/users/series-stats', () => {
-    it('should return series statistics for authenticated user', async () => {
+    it('should include seriesStats inside stats payload', async () => {
       const response = await request(app)
-        .get('/api/users/series-stats')
+        .get('/api/users/2/stats')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
-    });
-
-    it('should return 401 for unauthenticated request', async () => {
-      const response = await request(app)
-        .get('/api/users/series-stats');
-
-      expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('error');
+      expect(response.body).toHaveProperty('seriesStats');
+      expect(Array.isArray(response.body.seriesStats)).toBe(true);
     });
   });
 
@@ -143,6 +135,40 @@ describe('User Stats Integration Tests', () => {
 
       expect(response.status).toBe(403);
       expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('User Stats with avg_completion', () => {
+    it('should include avg_completion in user statistics', async () => {
+      const response = await request(app)
+        .get('/api/users/2/stats')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('total_listening_time');
+      expect(response.body).toHaveProperty('episodes_completed');
+      expect(response.body).toHaveProperty('achievements_earned');
+      expect(response.body).toHaveProperty('avg_completion');
+      expect(typeof response.body.avg_completion).toBe('number');
+    });
+
+    it('should handle avg_completion updates', async () => {
+      // Test rejestrowania sesji z completion_rate
+      const sessionData = {
+        episodeId: 1,
+        startTime: '2024-01-01T00:00:00Z',
+        endTime: '2024-01-01T00:01:00Z',
+        playbackSpeed: 1.0,
+        completionRate: 0.95,
+        durationSeconds: 60
+      };
+
+      const response = await request(app)
+        .post('/api/achievements/record-session')
+        .set('Authorization', 'Bearer user-token')
+        .send(sessionData);
+
+      expect(response.status).toBe(200);
     });
   });
 }); 

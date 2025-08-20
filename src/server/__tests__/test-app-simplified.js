@@ -143,7 +143,42 @@ function createTestApp() {
       res.status(401).json({ error: 'Invalid token' });
     }
   });
-  
+
+  app.post('/api/auth/logout', (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    res.json({ message: 'Logged out successfully' });
+  });
+
+  app.post('/api/auth/refresh', (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    
+    if (token === 'invalid-token') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Symulacja odświeżenia tokenu
+    const newToken = token === 'admin-token' ? 'admin-token-refreshed' : 'user-token-refreshed';
+    const user = token === 'admin-token' 
+      ? { id: 1, email: 'admin@food4thought.local', role: 'super_admin' }
+      : { id: 2, email: 'test@example.com', role: 'user' };
+    
+    res.json({
+      token: newToken,
+      user: user
+    });
+  });
+
   // Series endpoints for testing
   app.get('/api/series', (req, res) => {
     const authHeader = req.headers.authorization;
@@ -200,7 +235,8 @@ function createTestApp() {
           series_id: 1,
           series_name: 'Test Series 1',
           series_color: '#ff0000',
-          series_image: 'test1.jpg'
+          series_image: 'test1.jpg',
+          audioUrl: '/audio/seria1/polski/episode1.mp3'
         }
       ],
       inProgress: [
@@ -213,7 +249,8 @@ function createTestApp() {
           series_image: 'test1.jpg',
           user_position: 300,
           user_completed: 0,
-          user_last_played: '2024-01-01T00:00:00Z'
+          user_last_played: '2024-01-01T00:00:00Z',
+          audioUrl: '/audio/seria1/polski/episode2.mp3'
         }
       ],
       completed: [
@@ -226,7 +263,8 @@ function createTestApp() {
           series_image: 'test2.jpg',
           user_position: 1800,
           user_completed: 1,
-          user_last_played: '2024-01-01T00:00:00Z'
+          user_last_played: '2024-01-01T00:00:00Z',
+          audioUrl: '/audio/seria2/polski/episode3.mp3'
         }
       ]
     });
@@ -247,7 +285,8 @@ function createTestApp() {
         series_name: 'Test Series 1',
         series_color: '#ff0000',
         series_image: 'test1.jpg',
-        favorited_at: '2024-01-01T00:00:00Z'
+        favorited_at: '2024-01-01T00:00:00Z',
+        audioUrl: '/audio/seria1/polski/episode1.mp3'
       }
     ]);
   });
@@ -268,7 +307,8 @@ function createTestApp() {
         series_color: '#ff0000',
         series_image: 'test1.jpg',
         rating: 5,
-        rated_at: '2024-01-01T00:00:00Z'
+        rated_at: '2024-01-01T00:00:00Z',
+        audioUrl: '/audio/seria1/polski/episode1.mp3'
       }
     ]);
   });
@@ -287,7 +327,10 @@ function createTestApp() {
     res.json({ 
       id: req.params.id, 
       title: 'Test Episode', 
-      series_id: 1 
+      series_id: 1,
+      audioUrl: `/audio/seria1/polski/episode${req.params.id}.mp3`,
+      average_rating: 4.5,
+      rating_count: 10
     });
   });
   
@@ -356,6 +399,33 @@ function createTestApp() {
     
     res.json({ average_rating: 4.5, rating_count: 10 });
   });
+
+  app.get('/api/episodes/next/:id', (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const currentEpisodeId = req.params.id;
+    
+    if (currentEpisodeId === '99999') {
+      return res.status(404).json({ error: 'Current episode not found' });
+    }
+    
+    // Symulacja logiki automatycznego odtwarzania
+    const nextEpisode = {
+      id: parseInt(currentEpisodeId) + 1,
+      title: 'Next Episode',
+      series_name: 'Test Series',
+      audioUrl: `/audio/seria1/polski/episode${parseInt(currentEpisodeId) + 1}.mp3`
+    };
+    
+    res.json({
+      nextEpisode: nextEpisode,
+      message: 'Next episode found'
+    });
+  });
   
   app.delete('/api/episodes/:id', (req, res) => {
     const authHeader = req.headers.authorization;
@@ -392,21 +462,27 @@ function createTestApp() {
     res.json({
       total_episodes: 10,
       completed_episodes: 5,
-      favorite_episodes: 3
+      favorite_episodes: 3,
+      total_listening_time: 3600,
+      episodes_completed: 5,
+      achievements_earned: 3,
+      avg_completion: 0.85,
+      seriesStats: [
+        { id: 1, name: 'Biznes', color: '#3B82F6', totalCount: 5, completedCount: 2 },
+        { id: 2, name: 'Technologia', color: '#10B981', totalCount: 5, completedCount: 3 }
+      ]
     });
   });
   
-  app.get('/api/users/series-stats', (req, res) => {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-    
-    res.json([
-      { series_id: 1, series_name: 'Test Series 1', episodes_count: 5, completed_count: 3 }
-    ]);
-  });
+  // Removed obsolete mock: /api/users/series-stats now included in /api/users/:id/stats
+  // app.get('/api/users/series-stats', (req, res) => {
+  //   const authHeader = req.headers.authorization;
+  //   
+  //   if (!authHeader) {
+  //     return res.status(401).json({ error: 'Unauthorized' });
+  //   }
+  //   return res.json([]);
+  // });
   
   app.get('/api/users/:id/favorites', (req, res) => {
     const authHeader = req.headers.authorization;
@@ -479,7 +555,14 @@ function createTestApp() {
     }
     
     res.json([
-      { id: 1, name: 'First Episode', description: 'Listen to your first episode', progress: 100 }
+      { 
+        id: 1, 
+        name: 'First Episode', 
+        description: 'Listen to your first episode', 
+        progress: 100,
+        category: 'episodes',
+        completed: true
+      }
     ]);
   });
   
@@ -491,6 +574,23 @@ function createTestApp() {
     }
     
     res.json({ message: 'Achievements checked successfully' });
+  });
+
+  app.post('/api/achievements/record-session', (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const { episodeId, startTime, endTime, playbackSpeed, completionRate, durationSeconds } = req.body;
+    
+    // Walidacja danych sesji
+    if (!episodeId || !startTime || !endTime || !playbackSpeed || !completionRate || !durationSeconds) {
+      return res.status(400).json({ error: 'Missing required session data' });
+    }
+    
+    res.json({ message: 'Session recorded successfully' });
   });
   
   // Admin endpoints
@@ -508,9 +608,11 @@ function createTestApp() {
     }
     
     res.json({
-      total_users: 10,
-      total_episodes: 50,
-      total_series: 5
+      totalUsers: 10,
+      totalEpisodes: 50,
+      totalSeries: 5,
+      totalListeningTime: 36000,
+      averageCompletionRate: 0.85
     });
   });
   
@@ -575,6 +677,35 @@ function createTestApp() {
     }
     
     res.json({ message: 'User deleted successfully' });
+  });
+
+  app.get('/api/admin/users/activity', (req, res) => {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    const token = authHeader.split(' ')[1];
+    
+    if (token !== 'admin-token') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    res.json([
+      {
+        userId: 1,
+        lastActive: '2024-01-01T12:00:00Z',
+        totalListeningTime: 3600,
+        episodesCompleted: 5
+      },
+      {
+        userId: 2,
+        lastActive: '2024-01-01T10:00:00Z',
+        totalListeningTime: 1800,
+        episodesCompleted: 3
+      }
+    ]);
   });
   
   app.get('/api/admin/series', (req, res) => {

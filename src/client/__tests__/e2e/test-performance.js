@@ -91,6 +91,31 @@ function analyzeTestPerformance() {
     console.log(`   • ${testStats.failed} testów nie przeszło - napraw przed optymalizacją`);
   }
   
+  // Analiza nowych funkcji
+  console.log(`\n🆕 ANALIZA NOWYCH FUNKCJI:`);
+  
+  // Sprawdź testy automatycznego odtwarzania
+  const autoPlayTests = testStats.slowTests.filter(test => 
+    test.name.includes('automatyczne') || 
+    test.name.includes('auto') || 
+    test.name.includes('next episode')
+  );
+  
+  if (autoPlayTests.length > 0) {
+    console.log(`   • Testy automatycznego odtwarzania: ${autoPlayTests.length} (średnio ${(autoPlayTests.reduce((sum, test) => sum + test.duration, 0) / autoPlayTests.length / 1000).toFixed(1)}s)`);
+  }
+  
+  // Sprawdź testy API calls
+  const apiTests = testStats.slowTests.filter(test => 
+    test.name.includes('API') || 
+    test.name.includes('endpoint') || 
+    test.name.includes('record-session')
+  );
+  
+  if (apiTests.length > 0) {
+    console.log(`   • Testy API calls: ${apiTests.length} (średnio ${(apiTests.reduce((sum, test) => sum + test.duration, 0) / apiTests.length / 1000).toFixed(1)}s)`);
+  }
+  
   console.log(`\n🎯 CEL: < 1min dla wszystkich testów`);
 }
 

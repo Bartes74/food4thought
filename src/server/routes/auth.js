@@ -236,4 +236,50 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
+// Wylogowanie użytkownika
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    // W JWT nie ma potrzeby invalidacji tokenu po stronie serwera
+    // Token będzie nieważny po stronie klienta
+    res.json({ message: 'Wylogowano pomyślnie' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
+// Odświeżanie tokenu
+router.post('/refresh', authenticateToken, async (req, res) => {
+  try {
+    const db = await getDb();
+    const user = await db.get(
+      'SELECT id, email, role FROM users WHERE id = ?',
+      [req.user.id]
+    );
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Użytkownik nie znaleziony' });
+    }
+    
+    // Generuj nowy token
+    const newToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key',
+      { expiresIn: '30d' }
+    );
+    
+    res.json({
+      token: newToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ error: 'Błąd serwera' });
+  }
+});
+
 export default router;

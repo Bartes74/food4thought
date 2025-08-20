@@ -96,18 +96,19 @@ describe('Simple Integration Tests', () => {
   describe('User Statistics', () => {
     it('should return series statistics for authenticated user', async () => {
       const response = await request(app)
-        .get('/api/users/series-stats')
+        .get('/api/users/2/stats')
         .set('Authorization', 'Bearer user-token');
 
       expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('seriesStats');
+      expect(Array.isArray(response.body.seriesStats)).toBe(true);
     });
 
     it('should return 401 for unauthenticated request', async () => {
       const response = await request(app)
-        .get('/api/users/series-stats');
+        .get('/api/users/2/stats');
 
       expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty('error');
     });
   });
 

@@ -1,15 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useTheme } from '../contexts/ThemeContext';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../contexts/AuthContext.jsx';
+import { useLanguage } from '../contexts/LanguageContext.jsx';
+import { useTheme } from '../contexts/ThemeContext.jsx';
 import axios from 'axios';
 import StarRating from './StarRating';
+import { AUTO_PLAY_ENABLED } from '../config.js';
+import { getNextEpisodeToPlay } from '../utils/autoPlayQueue.js';
 
-const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
-  const { t } = useLanguage();
+const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartId, onAutoStartConsumed }) => {
+  const { t, formatDate } = useLanguage();
   const { isDarkMode } = useTheme();
   const { user } = useAuth();
   const audioRef = useRef(null);
+  // Automatyczny start po załadowaniu został wyłączony – odtwarzanie tylko po ręcznej akcji użytkownika
   
   // Stan playera
   const [isPlaying, setIsPlaying] = useState(false);
@@ -23,6 +26,18 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [showFullInfo, setShowFullInfo] = useState(false);
   const [userRating, setUserRating] = useState(0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [ratingCount, setRatingCount] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(() => {
+    try {
+      const v = localStorage.getItem('audio.autoPlay');
+      return v ? JSON.parse(v) : false;
+    } catch {
+      return false;
+    }
+  });
+  // Autoodtwarzanie następnego odcinka zostało usunięte. Pozostawiamy tylko natychmiastowe
+  // odtwarzanie po ręcznym wyborze odcinka (inicjowane przez użytkownika).
   
   // Stan dla trackingu osiągnięć
   const [sessionStartTime, setSessionStartTime] = useState(null);
@@ -31,7 +46,9 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   const topics = episode?.topics || [];
 
   // Pobierz kolor serii z seriesInfo lub użyj domyślnego
-  const seriesColor = seriesInfo?.color || '#3B82F6';
+  const seriesColor = seriesInfo?.color || episode?.series_info?.color || '#3B82F6';
+
+  // Automatyczny start po zmianie odcinka został wyłączony
 
   // Oblicz numer odcinka w serii
   const getEpisodeNumber = () => {
@@ -52,6 +69,11 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     // Scroll do góry przy zmianie odcinka
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [episode]);
+
+  // Po zmianie odcinka – nie uruchamiaj odtwarzania automatycznie
+  useEffect(() => {
+    setIsPlaying(false);
+  }, [episode?.id]);
 
   // Zapisuj postęp co 5 sekund
   useEffect(() => {
@@ -109,12 +131,13 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   // Zapisz postęp
   const saveProgress = async () => {
     if (!episode?.id) return;
-    
     try {
-      await axios.post(`/api/episodes/${episode.id}/progress`, {
-        position: Math.floor(currentTime),
-        completed: false
-      });
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `/api/episodes/${episode.id}/progress`,
+        { position: Math.floor(currentTime), completed: false },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+      );
     } catch (error) {
       console.error('Błąd zapisywania postępu:', error);
     }
@@ -189,25 +212,33 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
+      // Utrzymaj wybraną prędkość po załadowaniu nowego źródła
+      audioRef.current.playbackRate = playbackRate;
     }
   };
 
   // Obsługa zakończenia odcinka
-  const handleEnded = async () => {
-    console.log('=== AUDIO ENDED ===');
-    console.log('Episode finished:', episode?.title);
-    setIsPlaying(false);
+  const handleEnded = useCallback(async () => {
+    console.log('=== AUDIO ENDED CALLBACK ===');
+    console.log('Episode:', episode?.title);
+    console.log('Audio src:', episode?.audioUrl);
+    console.log('Duration:', duration);
+    console.log('Current time:', currentTime);
+    // autoplay następnego odcinka – usunięte
+    console.log('User:', user?.id);
     
-    // Zapisz jako ukończony
-    if (episode?.id) {
+    if (user) {
       try {
-        console.log('Marking episode as completed:', episode.id);
-        await axios.post(`/api/episodes/${episode.id}/progress`, {
-          position: 0,
-          completed: true
-        });
-        console.log('Episode marked as completed successfully');
+        // Oznacz odcinek jako ukończony (z nagłówkiem autoryzacji)
+        const token = localStorage.getItem('token');
+        await axios.post(
+          `/api/episodes/${episode.id}/progress`,
+          { position: duration, completed: true },
+          token ? { headers: { Authorization: `Bearer ${token}` } } : {}
+        );
         
+        console.log('Episode marked as completed successfully');
+
         // Rejestruj sesję dla osiągnięć z completion_rate = 1.0
         if (user) {
           const now = new Date().toISOString();
@@ -228,29 +259,84 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           }
         }
         
-        // Oznacz odcinek jako ukończony w systemie osiągnięć
-        // TODO: Dodać endpoint do obsługi ukończenia odcinka dla osiągnięć
-        // try {
-        //   await axios.post('/api/achievements/complete-episode', {
-        //     episodeId: episode.id,
-        //     completionRate: 1.0, // 100% ukończony
-        //     playbackSpeed: playbackRate
-        //   });
-        // } catch (error) {
-        //   console.error('Błąd podczas rejestrowania ukończenia odcinka dla osiągnięć:', error);
-        // }
+        // Automatyczne odtwarzanie następnego odcinka – usunięte
+        // Odśwież listy po ukończeniu (HomePage przeładuje sekcje)
+        try { window.dispatchEvent(new Event('episode-completed')); } catch {}
+
+        // Opcjonalne autoodtwarzanie z inteligentną kolejką (feature-flag + toggle)
+        if (AUTO_PLAY_ENABLED && autoPlay) {
+          try {
+            const token = localStorage.getItem('token');
+            const resp = await fetch('/api/episodes/my', { headers: { Authorization: `Bearer ${token}` } });
+            const data = resp.ok ? await resp.json() : { new: [], inProgress: [], completed: [] };
+            const all = [ ...(data.inProgress || []), ...(data.new || []), ...(data.completed || []) ];
+
+            // Kolejność serii według preferencji użytkownika; jeśli 'all' lub brak, użyj porządku po id
+            let favoritesSeriesOrdered = [];
+            if (user && user.preferences && Array.isArray(user.preferences.activeSeries) && user.preferences.activeSeries.length > 0) {
+              favoritesSeriesOrdered = user.preferences.activeSeries.map((id) => parseInt(id));
+            } else {
+              favoritesSeriesOrdered = Array.from(new Set(all.map(e => e.series_id))).sort((a, b) => (a || 0) - (b || 0));
+            }
+
+            const history = {
+              isUnfinished: (id) => {
+                const ep = all.find(e => String(e.id) === String(id));
+                if (!ep) return false;
+                if (ep.completed) return false;
+                // unfinished: faktycznie rozpoczęty (position > 0), ale nieukończony
+                return ((ep.position ?? ep.user_position ?? 0) > 0) && !ep.completed;
+              },
+              isListened: (id) => {
+                const ep = all.find(e => String(e.id) === String(id));
+                return !!(ep && ep.completed);
+              }
+            };
+
+            const episodesApi = {
+              listBySeries: async (seriesId) => {
+                const list = all.filter(e => String(e.series_id) === String(seriesId) && String(e.id) !== String(episode.id));
+                const withOrder = [...list].sort((a, b) => {
+                  if (a.episode_number != null && b.episode_number != null) return a.episode_number - b.episode_number;
+                  const da = a.date_added ? new Date(a.date_added).getTime() : 0;
+                  const db = b.date_added ? new Date(b.date_added).getTime() : 0;
+                  return da - db;
+                });
+                return withOrder;
+              }
+            };
+
+            // Daj DB chwilę na domknięcie transakcji ukończenia, zanim czytamy listy
+            await new Promise(r => setTimeout(r, 300));
+
+            let next = await getNextEpisodeToPlay({
+              currentEpisodeId: episode.id,
+              currentSeriesId: episode.series_id,
+              favoritesSeriesOrdered,
+              history,
+              episodesApi
+            });
+
+            // Bezpiecznik: nie wybieraj bieżącego odcinka ponownie
+            if (next && String(next.id) === String(episode.id)) {
+              // Spróbuj znaleźć pierwszy niesłuchany z innej serii
+              const allOther = all.filter(e => String(e.series_id) !== String(episode.series_id));
+              next = allOther.find(e => !e.completed && ((e.position || 0) === 0));
+            }
+
+            if (next && next.id && typeof window !== 'undefined') {
+              try { console.log('[autoPlay] next-picked', { episodeId: next.id, seriesId: next.series_id }); } catch {}
+              window.dispatchEvent(new CustomEvent('request-play-episode', { detail: { episodeId: next.id, autoStart: true } }));
+            }
+          } catch (e) {
+            console.warn('[autoPlay] queue error', e);
+          }
+        }
       } catch (error) {
-        console.error('Błąd oznaczania jako ukończony:', error);
+        console.error('Błąd podczas oznaczania odcinka jako ukończony:', error);
       }
     }
-    
-    // Wywołaj callback
-    if (onEpisodeEnd) {
-      console.log('Calling onEpisodeEnd callback');
-      onEpisodeEnd();
-    }
-    console.log('=== AUDIO END HANDLING COMPLETE ===');
-  };
+  }, [episode, user, duration, playbackRate, sessionStartTime, autoPlay]);
 
   // Toggle ulubione
   const toggleFavorite = async () => {
@@ -319,7 +405,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
     return (
       <div className={`w-full max-w-4xl mx-auto ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-2xl shadow-xl p-6`}>
         <p className="text-center text-light-textSecondary dark:text-gray-400">
-          Wybierz odcinek do odtworzenia
+          {t('audioPlayer.selectEpisode')}
         </p>
       </div>
     );
@@ -347,15 +433,42 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
   const showExpandButton = hasAdditionalInfo && episode.additional_info.length > 500;
 
   return (
-    <div className={`w-full max-w-4xl mx-auto ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-2xl shadow-xl p-6`} data-testid="audio-player">
+    <div className={`w-full max-w-4xl mx-auto ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-2xl shadow-xl p-6 relative`} data-testid="audio-player">
       {/* Ukryty element audio */}
       <audio
         ref={audioRef}
         src={episode.audioUrl}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
-        onEnded={handleEnded}
-        onPause={() => saveProgress()}
+        onEnded={(e) => {
+          console.log('=== AUDIO ENDED EVENT FIRED ===');
+          console.log('Event:', e);
+          console.log('Audio element:', e.target);
+          console.log('Audio ended at:', e.target.currentTime);
+          console.log('Audio duration:', e.target.duration);
+          console.log('Audio src:', e.target.src);
+          console.log('User:', user?.id);
+          handleEnded();
+        }}
+        onPause={() => {
+          setIsPlaying(false);
+          saveProgress();
+        }}
+        onPlay={() => setIsPlaying(true)}
+        onError={(e) => console.error('Audio error:', e)}
+        onLoadStart={() => console.log('Audio loading started:', episode?.audioUrl)}
+        onCanPlay={() => {
+          console.log('Audio can play:', episode?.audioUrl);
+          // Autostart na ręczny wybór lub gdy kolejka poprosiła o autoStart
+          if (requestedAutoStartId && String(requestedAutoStartId) === String(episode?.id)) {
+            if (audioRef.current) {
+              audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+            }
+            if (typeof onAutoStartConsumed === 'function') {
+              onAutoStartConsumed();
+            }
+          }
+        }}
       />
 
       {/* Tytuł i informacje */}
@@ -372,7 +485,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           />
         </div>
         <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-          {episode.series_name} • {new Date(episode.date_added || Date.now()).toLocaleDateString('pl-PL')}
+          {episode.series_name} • {formatDate(episode.date_added || Date.now())}
         </p>
       </div>
 
@@ -380,20 +493,20 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
       <div className="flex gap-6 mb-6">
         {/* Grafika serii - 300x300 px */}
         <div className="flex-shrink-0">
-          {seriesInfo?.image ? (
+          {(seriesInfo?.image || episode?.series_info?.image) ? (
             <div className="relative w-[300px] h-[300px]">
               <img 
-                src={seriesInfo.image}
+                src={seriesInfo?.image || episode.series_info.image}
                 alt={episode.series_name}
                 className="w-full h-full rounded-lg shadow-lg object-cover"
                 onError={(e) => {
-                  console.error('Błąd ładowania grafiki serii:', seriesInfo.image);
+                  console.error('Błąd ładowania grafiki serii:', seriesInfo?.image || episode.series_info.image);
                   e.target.style.display = 'none';
                 }}
               />
               {/* Numer odcinka na grafice */}
               <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-lg">
-                <span className="text-5xl font-bold">{getEpisodeNumber()}</span>
+                <span className="text-5xl font-bold episode-number" data-testid="episode-number">{getEpisodeNumber()}</span>
               </div>
             </div>
           ) : (
@@ -402,7 +515,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
               style={{ backgroundColor: seriesColor }}
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-              <span className="text-7xl font-bold text-white/90 tracking-wider relative z-10">
+              <span className="text-7xl font-bold text-white/90 tracking-wider relative z-10 episode-number" data-testid="episode-number">
                 {getEpisodeNumber()}
               </span>
             </div>
@@ -412,7 +525,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
         {/* Aktualny temat i linki */}
         <div className="flex-1">
           <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {currentTopic ? currentTopic.title : 'Tematy odcinka'}
+            {currentTopic ? currentTopic.title : t('audioPlayer.topics')}
           </h3>
           
           {currentTopic && currentTopic.links.length > 0 ? (
@@ -434,11 +547,11 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
               onClick={() => setShowAllTopics(!showAllTopics)}
               className="text-sm text-primary hover:text-primary-dark transition-colors"
             >
-              {showAllTopics ? 'Ukryj wszystkie tematy' : 'Pokaż wszystkie tematy'}
+              {showAllTopics ? t('audioPlayer.hideAllTopics') : t('audioPlayer.showAllTopics')}
             </button>
           ) : (
             <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Brak linków dla tego odcinka
+              {t('audioPlayer.noLinks')}
             </p>
           )}
 
@@ -501,7 +614,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           <button
             onClick={() => skip(-15)}
             className={`relative p-3 rounded-full ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors group`}
-            title="Cofnij 15 sekund"
+            title={t('audioPlayer.rewind15')}
           >
             <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
               <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
@@ -532,7 +645,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           <button
             onClick={() => skip(30)}
             className={`relative p-3 rounded-full ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors group`}
-            title="Przewiń 30 sekund"
+            title={t('audioPlayer.forward30')}
           >
             <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12.01 19V23l5-5-5-5v4c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6h2c0-4.42-3.58-8-8-8s-8 3.58-8 8 3.58 8 8 8z"/>
@@ -555,7 +668,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           <button
             onClick={() => setShowAllTopics(!showAllTopics)}
             className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors`}
-            title="Lista tematów"
+            title={t('audioPlayer.topicsList')}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
@@ -566,7 +679,7 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           <button
             onClick={toggleFavorite}
             className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors`}
-            title={isFavorite ? "Usuń z ulubionych" : "Dodaj do ulubionych"}
+            title={isFavorite ? t('audioPlayer.removeFromFavorites') : t('audioPlayer.addToFavorites')}
             data-testid="favorite-button"
           >
             <svg 
@@ -619,13 +732,13 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
         <div className={`mt-6 p-4 ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} rounded-xl relative`}>
           <div className="flex justify-between items-start mb-2">
             <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Dodatkowe informacje
+              {t('audioPlayer.additionalInfo')}
             </h3>
             {showExpandButton && (
               <button
                 onClick={() => setShowFullInfo(!showFullInfo)}
                 className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
-                title={showFullInfo ? "Zwiń" : "Rozwiń"}
+                title={showFullInfo ? t('audioPlayer.collapse') : t('audioPlayer.expand')}
               >
                 <svg 
                   className={`w-5 h-5 transform transition-transform ${showFullInfo ? 'rotate-180' : ''}`} 
@@ -642,6 +755,23 @@ const AudioPlayer = ({ episode, onEpisodeEnd, seriesInfo, onRatingChange }) => {
           </div>
         </div>
       )}
+
+      {/* Toggle Autoodtwarzania – pod polem z dodatkowymi informacjami */}
+      <div className="mt-4 flex items-center justify-end gap-2">
+        <span className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Automatyczne odtwarzanie</span>
+        <button
+          onClick={() => {
+            const v = !autoPlay;
+            setAutoPlay(v);
+            try { localStorage.setItem('audio.autoPlay', JSON.stringify(v)); } catch {}
+          }}
+          aria-label="Automatyczne odtwarzanie"
+          aria-pressed={autoPlay}
+          className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${autoPlay ? 'bg-primary' : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')}`}
+        >
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${autoPlay ? 'translate-x-7' : 'translate-x-1'}`} />
+        </button>
+      </div>
     </div>
   );
 };

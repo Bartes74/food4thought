@@ -140,6 +140,49 @@ describe('Admin Stats Endpoints', () => {
     });
   });
 
+  describe('System Statistics with avg_completion', () => {
+    it('should include avg_completion in system stats', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats')
+        .query({ range: 'all' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('episodes');
+      expect(response.body.episodes).toHaveProperty('completionRate');
+      expect(typeof response.body.episodes.completionRate).toBe('number');
+      expect(response.body.episodes.completionRate).toBeGreaterThanOrEqual(0);
+      expect(response.body.episodes.completionRate).toBeLessThanOrEqual(100);
+    });
+
+    it('should include user activity statistics', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats')
+        .query({ range: 'all' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('users');
+      expect(response.body.users).toHaveProperty('active');
+      expect(response.body.users).toHaveProperty('retention');
+      expect(typeof response.body.users.active).toBe('number');
+      expect(typeof response.body.users.retention).toBe('number');
+    });
+
+    it('should include technical statistics', async () => {
+      const response = await request(app)
+        .get('/api/admin/stats')
+        .query({ range: 'all' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('technical');
+      expect(response.body.technical).toHaveProperty('languages');
+      expect(response.body.technical).toHaveProperty('playbackSpeeds');
+      expect(response.body.technical).toHaveProperty('hourlyActivity');
+      expect(Array.isArray(response.body.technical.languages)).toBe(true);
+      expect(Array.isArray(response.body.technical.playbackSpeeds)).toBe(true);
+      expect(Array.isArray(response.body.technical.hourlyActivity)).toBe(true);
+    });
+  });
+
   describe('GET /api/admin-stats/stats (legacy endpoint)', () => {
     it('should return admin stats for legacy endpoint', async () => {
       const response = await request(app)

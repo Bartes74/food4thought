@@ -8,7 +8,7 @@ import axios from 'axios';
 
 const FavoritesPage = () => {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, formatDate } = useLanguage();
   const { isDarkMode } = useTheme();
   const navigate = useNavigate();
   
@@ -95,7 +95,7 @@ const FavoritesPage = () => {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-light-textSecondary dark:text-gray-400">Ładowanie...</p>
+            <p className="mt-4 text-light-textSecondary dark:text-gray-400">{t('common.loading')}</p>
           </div>
         </div>
       </Layout>
@@ -106,7 +106,7 @@ const FavoritesPage = () => {
     <Layout>
       <div className="max-w-6xl mx-auto p-6">
         <h1 className="text-3xl font-bold text-light-text dark:text-white mb-8">
-          Ulubione odcinki
+          {t('favorites.title')}
         </h1>
 
         {/* Wyszukiwarka */}
@@ -116,7 +116,7 @@ const FavoritesPage = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Szukaj w ulubionych..."
+              placeholder={t('favorites.searchPlaceholder')}
               className={`w-full px-4 py-3 pl-12 rounded-lg border ${
                 isDarkMode 
                   ? 'bg-dark-surface border-dark-border text-white placeholder-gray-400' 
@@ -139,7 +139,7 @@ const FavoritesPage = () => {
         {favorites.length === 0 ? (
           <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-8 text-center`}>
             <p className="text-light-textSecondary dark:text-gray-400">
-              {search ? 'Nie znaleziono ulubionych odcinków pasujących do wyszukiwania.' : 'Nie masz jeszcze żadnych ulubionych odcinków.'}
+              {search ? t('favorites.noResults') : t('favorites.noFavorites')}
             </p>
           </div>
         ) : (
@@ -181,7 +181,7 @@ const FavoritesPage = () => {
                                   {episode.title}
                                 </h3>
                                 <span className="text-sm text-light-textSecondary dark:text-gray-400">
-                                  • {new Date(episode.date_added).toLocaleDateString('pl-PL')}
+                                  • {formatDate(episode.date_added)}
                                 </span>
                               </div>
                             </div>
@@ -205,7 +205,7 @@ const FavoritesPage = () => {
                             {episode.additional_info && (
                               <div className="mt-4">
                                 <h4 className="font-semibold text-light-text dark:text-white mb-2">
-                                  Informacje dodatkowe
+                                  {t('favorites.additionalInfo')}
                                 </h4>
                                 <p className="text-sm text-light-textSecondary dark:text-gray-400 whitespace-pre-wrap">
                                   {episode.additional_info}
@@ -225,7 +225,7 @@ const FavoritesPage = () => {
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                                 </svg>
-                                Odtwórz
+                                {t('favorites.play')}
                               </button>
                               <button
                                 onClick={(e) => {
@@ -242,7 +242,7 @@ const FavoritesPage = () => {
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                                     d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                 </svg>
-                                Usuń z ulubionych
+                                {t('favorites.removeFromFavorites')}
                               </button>
                             </div>
                           </div>
@@ -255,8 +255,7 @@ const FavoritesPage = () => {
             ) : (
               <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                 <div className="text-6xl mb-4">💔</div>
-                <h3 className="text-xl font-semibold mb-2">Brak ulubionych odcinków</h3>
-                <p>Dodaj odcinki do ulubionych, aby szybciej do nich wracać!</p>
+                <h3 className="text-xl font-semibold mb-2">{t('favorites.noFavorites')}</h3>
               </div>
             )}
           </div>

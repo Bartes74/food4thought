@@ -32,6 +32,8 @@ const EpisodeManagement = () => {
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEpisode, setEditingEpisode] = useState(null);
+  const [topicsContent, setTopicsContent] = useState('');
+  const [topicsLoading, setTopicsLoading] = useState(false);
 
   useEffect(() => {
     // Sprawdź czy jest parametr series w URL
@@ -117,33 +119,14 @@ const EpisodeManagement = () => {
     }
   };
 
-  const handleAddLinks = async (episodeId, content) => {
+  const handleSaveTopics = async (episodeId, content) => {
     try {
-      await axios.post(`/api/episodes/${episodeId}/links`, { content });
-      setShowEditModal(false);
-      setEditingEpisode(null);
-      // Odśwież dane
-      await fetchData();
-    } catch (error) {
-      setError(error.response?.data?.error || 'Błąd dodawania linków');
-    }
-  };
-
-  const handleUpdateEpisodeInfo = async (episodeId, updates) => {
-    try {
-      // Zaktualizuj informacje dodatkowe
-      await axios.put(`/api/episodes/${episodeId}`, updates);
-      
-      // Jeśli są linki, zaktualizuj je też
-      if (updates.linksContent !== undefined) {
-        await axios.post(`/api/episodes/${episodeId}/links`, { content: updates.linksContent });
-      }
-      
+      await axios.post(`/api/episodes/${episodeId}/topics`, { content });
       setShowEditModal(false);
       setEditingEpisode(null);
       await fetchData();
     } catch (error) {
-      setError(error.response?.data?.error || 'Błąd aktualizacji odcinka');
+      setError(error.response?.data?.error || 'Błąd zapisu tematów');
     }
   };
 
@@ -265,9 +248,27 @@ const EpisodeManagement = () => {
                       </span>
                     )}
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setEditingEpisode(episode);
                         setShowEditModal(true);
+                        try {
+                          setTopicsLoading(true);
+                          setError('');
+                          const res = await axios.get(`/api/episodes/${episode.id}/topics`);
+                          const topics = res.data?.topics || [];
+                          const text = topics
+                            .map(t => {
+                              const header = `[${t.timestamp}] # ${t.title}`;
+                              const links = (t.links || []).map(l => `- ${l}`).join('\n');
+                              return links ? `${header}\n${links}` : header;
+                            })
+                            .join('\n');
+                          setTopicsContent(text);
+                        } catch (e) {
+                          setTopicsContent('');
+                        } finally {
+                          setTopicsLoading(false);
+                        }
                       }}
                       className="p-2 hover:bg-gray-100 dark:hover:bg-dark-bg rounded-lg transition-colors"
                       title="Informacje i linki"
@@ -302,15 +303,15 @@ const EpisodeManagement = () => {
           </div>
         )}
 
-        {/* Modal dodawania odcinka */}
-        {showAddModal && (
+        {/* Modal dodawania odcinka - ukryty (backend nie wspiera uploadu) */}
+        {false && showAddModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className={`w-full max-w-2xl ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 my-8`}>
               <h2 className="text-xl font-bold mb-6 text-light-text dark:text-white">
-                Dodaj nowy odcinek
+                Dodawanie odcinka jest niedostępne
               </h2>
               
-              <form onSubmit={handleUploadEpisode} className="space-y-4" data-testid="add-episode-form">
+              <form onSubmit={handleUploadEpisode} className="space-y-4" data-testid="add-episode-form" style={{ display: 'none' }}>
                 {/* Tytuł */}
                 <div>
                   <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
@@ -481,54 +482,38 @@ const EpisodeManagement = () => {
           </div>
         )}
 
-        {/* Modal edycji informacji i linków */}
+        {/* Modal edycji tematów i linków */}
         {showEditModal && editingEpisode && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className={`w-full max-w-2xl ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 my-8`}>
               <h2 className="text-xl font-bold mb-4 text-light-text dark:text-white">
-                Edytuj informacje - {editingEpisode.title}
+                Edytuj tematy i linki - {editingEpisode.title}
               </h2>
               
               <form onSubmit={(e) => {
                 e.preventDefault();
-                const additionalInfo = e.target.elements.additionalInfo.value;
-                const linksContent = e.target.elements.links.value;
-                handleUpdateEpisodeInfo(editingEpisode.id, { additional_info: additionalInfo, linksContent });
+                handleSaveTopics(editingEpisode.id, topicsContent);
               }}>
-                {/* Informacje dodatkowe */}
+                {/* Tematy i timestampy */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
-                    Informacje dodatkowe
+                    Tematy i timestampy
                   </label>
-                  <textarea
-                    name="additionalInfo"
-                    rows={8}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-300'
-                    } focus:ring-2 focus:ring-primary outline-none`}
-                    placeholder="Dodatkowe informacje o odcinku..."
-                    defaultValue={editingEpisode.additional_info || ''}
-                  />
-                </div>
-
-                {/* Linki i timestampy */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2 text-light-text dark:text-gray-300">
-                    Linki i timestampy
-                  </label>
-                  <textarea
-                    name="links"
-                    placeholder="[00:00] # Wprowadzenie&#10;- https://example.com/link1&#10;- https://example.com/link2&#10;&#10;[05:30] # Główny temat&#10;- https://example.com/link3"
-                    rows={8}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-white' 
-                        : 'bg-white border-gray-300'
-                    } focus:ring-2 focus:ring-primary outline-none font-mono text-sm`}
-                    defaultValue={editingEpisode.linksContent || ''}
-                  />
+                  {topicsLoading ? (
+                    <div className="text-light-textSecondary dark:text-gray-400">Ładowanie tematów...</div>
+                  ) : (
+                    <textarea
+                      value={topicsContent}
+                      onChange={(e) => setTopicsContent(e.target.value)}
+                      placeholder="[00:00] # Wprowadzenie\n- https://example.com/link1\n- https://example.com/link2\n\n[05:30] # Główny temat\n- https://example.com/link3"
+                      rows={12}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        isDarkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300'
+                      } focus:ring-2 focus:ring-primary outline-none font-mono text-sm`}
+                    />
+                  )}
                 </div>
                 
                 <div className="flex gap-2">
@@ -536,13 +521,14 @@ const EpisodeManagement = () => {
                     type="submit"
                     className="flex-1 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors"
                   >
-                    Zapisz
+                    Zapisz tematy
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       setShowEditModal(false);
                       setEditingEpisode(null);
+                      setTopicsContent('');
                     }}
                     className="flex-1 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                   >
