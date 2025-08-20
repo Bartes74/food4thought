@@ -150,6 +150,26 @@ Aplikacja używa GitHub Actions do automatycznego deploymentu:
 3. Build aplikacji
 4. Deployment na serwer
 
+### Uruchomienie w Dockerze
+
+```bash
+# Build obrazu
+docker build -t food4thought:latest .
+
+# Uruchomienie kontenera (port 3001)
+docker run -d --name food4thought \
+  -p 3001:3001 \
+  -e NODE_ENV=production \
+  -e PORT=3001 \
+  -e JWT_SECRET=your-secret \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/public:/app/public:ro \
+  food4thought:latest
+
+# Lub docker-compose
+docker compose up -d --build
+```
+
 ## 📝 Changelog
 
 ### v2.2.0 (Aktualna)

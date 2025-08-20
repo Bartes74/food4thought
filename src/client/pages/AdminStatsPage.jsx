@@ -27,7 +27,7 @@ const AdminStatsPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`/api/admin-stats/stats?range=${timeRange}`);
+      const response = await axios.get(`/api/admin/stats?range=${timeRange}`);
       setAdminStats(response.data);
     } catch (error) {
       console.error('Error fetching admin stats:', error);
