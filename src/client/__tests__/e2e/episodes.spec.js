@@ -18,12 +18,19 @@ test.describe('Funkcjonalności odcinków', () => {
     
     // Sprawdź czy strona się załadowała (ma jakieś treści)
     await expect(page.locator('main')).toBeVisible();
+    await page.waitForTimeout(500);
   });
 
   test('powinien wyświetlić listę odcinków', async ({ page }) => {
-    // Sprawdź czy lista odcinków jest widoczna (elastyczne selektory)
+    // Sprawdź listę odcinków lub pojedyncze karty (elastycznie)
     const episodesList = page.locator('[data-testid="episodes-list"], .episodes-list, .episode-list, [data-testid="episode-list"]');
-    await expect(episodesList).toBeVisible();
+    const hasList = (await episodesList.count()) > 0;
+    if (hasList) {
+      await expect(episodesList).toBeVisible();
+    } else {
+      const episodes = page.locator('[data-testid="episode-item"], .episode-item, .episode-card, [data-testid="episode-card"]');
+      expect(await episodes.count()).toBeGreaterThan(0);
+    }
     
     // Sprawdź czy są kategorie odcinków - używaj rzeczywistych nagłówków
     const headers = page.locator('h2, h3');
@@ -43,6 +50,7 @@ test.describe('Funkcjonalności odcinków', () => {
     const episodeCount = await episodes.count();
     
     if (episodeCount > 0) {
+      await page.waitForTimeout(300);
       // Otwórz pierwszy odcinek
       await episodes.first().click();
       
@@ -161,8 +169,9 @@ test.describe('Funkcjonalności odcinków', () => {
     // Sprawdź czy przejście do strony ulubionych
     await expect(page).toHaveURL('/favorites');
     
-    // Sprawdź czy strona ulubionych jest widoczna - użyj bardziej precyzyjnego selektora
-    await expect(page.locator('h1:has-text("Ulubione")')).toBeVisible();
+    // Sprawdź czy strona ulubionych jest widoczna - akceptuj PL/EN/FR
+    const favHeader = page.locator('h1:has-text("Ulubione odcinki"), h1:has-text("Favorite episodes"), h1:has-text("Épisodes favoris")');
+    await expect(favHeader.first()).toBeVisible();
   });
 
   test('powinien wyszukać odcinki', async ({ page }) => {
@@ -173,8 +182,12 @@ test.describe('Funkcjonalności odcinków', () => {
     // Wpisz tekst wyszukiwania
     await searchInput.fill('test');
     
-    // Kliknij przycisk Szukaj
-    await page.click('button:has-text("Szukaj")');
+    // Uruchom wyszukiwanie: Enter w polu (fallback: klik przycisku jeśli istnieje)
+    await searchInput.press('Enter');
+    const searchBtn = page.locator('button:has-text("Szukaj"), button:has-text("Search"), button:has-text("Rechercher")');
+    if (await searchBtn.count() > 0) {
+      await searchBtn.first().click();
+    }
     
     // Sprawdź czy wyniki wyszukiwania się pojawiły
     await expect(page.locator('[data-testid="search-results"], .search-results')).toBeVisible();

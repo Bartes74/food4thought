@@ -26,6 +26,37 @@
 
 ## 🎯 Plan Naprawy
 
+### Faza 0: Stabilizacja E2E (UI/i18n) – tylko po stronie testów
+
+- [ ] Zwiększyć stabilność: `workers: 1` na CI, `navigationTimeout: 20000`
+- [x] Global setup: zapis storage i mkdir auth (zrobione)
+- [ ] Dodać krótkie `waitForTimeout(500–1000ms)` po klikach zakładek
+
+#### StatsPage – przegląd
+- [ ] Używać `data-testid="overview-stats"` zamiast sztywnych tekstów
+- [x] Teksty elastyczne: `Całkowity czas|Total time|Temps total` (zrobione)
+
+#### StatsPage – Serie
+- [x] `data-testid="series-stats"` + krótki wait po kliknięciu (częściowo)
+- [ ] Asercja danych: warunkowo (gdy pusto)
+
+#### Achievements – nawigacja i i18n
+- [x] Jeśli jest zakładka – klik, inaczej `/achievements` (zrobione)
+- [ ] Ujednolicić we wszystkich testach osiągnięć (postęp/szczegóły/kategorie/motywacyjne)
+- [ ] Elastyczne asercje: „Unlocked achievements|Succès débloqués|Odblokowanych osiągnięć”, kategorie: „For episodes|Pour les épisodes|Za odcinki”, itp.
+
+#### Favorites / Search
+- [x] Nagłówek (PL/EN/FR), uruchamianie wyszukiwania Enter + fallback (zrobione)
+
+#### Auth – sesja po reloadzie
+- [ ] Zamiast `toHaveURL('/')` użyć `not.toContain('/login')` i widoczny header; fallback: `loginUser(page)`
+
+#### Accessibility
+- [ ] Jeśli testy dotykały usuniętego autoplay – przeformułować/scipować selektywnie
+
+#### Lint
+- [ ] Uruchomić ESLint na testach i poprawić ostrzeżenia (duplikaty, unused)
+
 ### Faza 1: Naprawa endpointów admina (32 testy)
 
 #### 1.1 Dodanie brakujących endpointów admina do `test-app-simplified.js`

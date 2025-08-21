@@ -1,4 +1,6 @@
 import { chromium } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 async function globalSetup(config) {
   const browser = await chromium.launch();
@@ -25,8 +27,13 @@ async function globalSetup(config) {
       console.log('Loading indicator not found or already hidden');
     }
     
-    // Save authentication state
-    await page.context().storageState({ path: 'playwright/.auth/admin.json' });
+    // Upewnij się, że katalog na storage istnieje
+    const authDir = path.resolve('playwright/.auth');
+    try { fs.mkdirSync(authDir, { recursive: true }); } catch (_) {}
+
+    // Zapisz storage state po tym jak UI główny jest widoczny (nie wymagamy localStorage token)
+    await page.waitForSelector('header, main', { timeout: 30000 });
+    await page.context().storageState({ path: path.join(authDir, 'admin.json') });
     
     console.log('Global setup completed successfully');
   } catch (error) {
