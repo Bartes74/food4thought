@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
  */
 async function initDatabase(db) {
   // Database version for migrations
-  const DB_VERSION = 3;
+  const DB_VERSION = 6;
   
   try {
     // Sprawdź wersję bazy danych
@@ -168,8 +168,31 @@ async function initDatabase(db) {
     await db.run('CREATE UNIQUE INDEX IF NOT EXISTS idx_series_name ON series(name)');
     console.log('✅ Dodano UNIQUE constraint na nazwę serii');
     
-    // Zaktualizuj wersję bazy danych
-    await db.run(`PRAGMA user_version = ${DB_VERSION}`);
+    // Migracja do wersji 4 - dodanie typów powiadomień i metadanych
+    if (currentVersion < 4) {
+      // Dodaj nowe kolumny do tabeli admin_notifications
+      try {
+        await db.run(`
+          ALTER TABLE admin_notifications 
+          ADD COLUMN notification_type TEXT DEFAULT 'text'
+        `);
+        console.log('✅ Dodano kolumnę notification_type do admin_notifications');
+      } catch (error) {
+        console.log('Kolumna notification_type już istnieje w admin_notifications');
+      }
+
+      try {
+        await db.run(`
+          ALTER TABLE admin_notifications 
+          ADD COLUMN metadata TEXT DEFAULT '{}'
+        `);
+        console.log('✅ Dodano kolumnę metadata do admin_notifications');
+      } catch (error) {
+        console.log('Kolumna metadata już istnieje w admin_notifications');
+      }
+
+      console.log('✅ Zaktualizowano system powiadomień - dodano typy i metadane');
+    }
 
     // Tabela odcinków
     await db.run(`
@@ -194,6 +217,46 @@ async function initDatabase(db) {
     } catch (error) {
       // Kolumna już istnieje, ignoruj błąd
       console.log('Kolumna additional_info już istnieje');
+    }
+
+    // Migracja do wersji 5 - dodanie kolumny language do episodes
+    if (currentVersion < 5) {
+      try {
+        await db.run(`
+          ALTER TABLE episodes 
+          ADD COLUMN language TEXT DEFAULT 'polski'
+        `);
+        console.log('✅ Dodano kolumnę language do episodes');
+      } catch (error) {
+        console.log('Kolumna language już istnieje w episodes');
+      }
+    }
+
+    // Migracja do wersji 6 - gwarancja resetów haseł i kompatybilności starszych instancji
+    if (currentVersion < 6) {
+      await db.run(`
+        CREATE TABLE IF NOT EXISTS password_resets (
+          token TEXT PRIMARY KEY,
+          user_id INTEGER NOT NULL,
+          expires_at DATETIME NOT NULL,
+          used BOOLEAN DEFAULT 0,
+          FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+      `);
+      await db.run('CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id)');
+      await db.run('CREATE INDEX IF NOT EXISTS idx_password_resets_expires_at ON password_resets(expires_at)');
+
+      // Dla baz, które mają user_version=5, ale nie mają kolumny language
+      try {
+        await db.run(`
+          ALTER TABLE episodes
+          ADD COLUMN language TEXT DEFAULT 'polski'
+        `);
+      } catch (error) {
+        // Kolumna już istnieje, nic nie rób
+      }
+
+      console.log('✅ Zastosowano migrację v6 (password_resets + language consistency)');
     }
 
     // Tabela ulubionych
@@ -307,13 +370,16 @@ async function initDatabase(db) {
     } catch (error) {
       console.log('Kolumna avg_completion już istnieje w user_stats');
     }
+
+    // Zaktualizuj wersję bazy danych na końcu migracji
+    await db.run(`PRAGMA user_version = ${DB_VERSION}`);
     
     console.log('✅ Database schema initialized successfully');
   } catch (error) {
     console.error('❌ Error initializing database:', error);
     throw error;
   }
-};
+}
 
 // Inicjalizacja bazy danych
 let dbInstance = null;
@@ -354,7 +420,7 @@ export async function getDb() {
       const versionResult = await dbInstance.get('PRAGMA user_version');
       const currentVersion = versionResult ? versionResult.user_version : 0;
       
-      if (currentVersion < 3) {
+      if (currentVersion < 6) {
         await initDatabase(dbInstance);
       }
       
@@ -371,9 +437,6 @@ export async function initializeDatabase() {
   await initializeAchievements(db);
   return db;
 }
-
-// For backward compatibility
-const initDatabasePromise = initializeDatabase();
 
 // Inicjalizacja domyślnych osiągnięć
 const initializeAchievements = async (db) => {
@@ -456,15 +519,6 @@ const initializeAchievements = async (db) => {
   }
   
   console.log('✅ Zainicjalizowano system osiągnięć');
-};
-
-// Inicjalizacja statystyk użytkownika
-const initializeUserStats = async (userId) => {
-  const db = await getDb();
-  await db.run(`
-    INSERT OR IGNORE INTO user_stats (user_id)
-    VALUES (?)
-  `, [userId]);
 };
 
 // Eksport funkcji do obsługi bazy danych

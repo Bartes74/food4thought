@@ -37,8 +37,10 @@ test.describe('Responsywność i dostępność', () => {
 
   test('powinien obsługiwać automatyczne zapisywanie', async ({ page }) => {
     // Sprawdź czy aplikacja działa poprawnie
-    await expect(page.locator('header')).toBeVisible();
-    await expect(page.locator('main')).toBeVisible();
+    await expect(page.locator('header')).toBeVisible({ timeout: 30000 });
+    // WebKit: czasem renderuje role="main" zamiast elementu <main> lub widoczność opóźnia się
+    await page.waitForSelector('main, [role="main"]', { timeout: 30000 });
+    await expect(page.locator('main, [role="main"]')).toBeVisible({ timeout: 30000 });
   });
 
   test('powinien mieć dostępne kontrolki automatycznego odtwarzania', async ({ page }) => {

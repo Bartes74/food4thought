@@ -6,6 +6,7 @@
 export const validatePassword = (password) => {
   const errors = [];
   const warnings = [];
+  const hasSpecial = (pwd) => /[^a-zA-Z0-9]/.test(pwd || '');
   
   // Sprawdzenie długości
   if (password.length < 8) {
@@ -30,7 +31,7 @@ export const validatePassword = (password) => {
   }
   
   // Sprawdzenie znaków specjalnych
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!hasSpecial(password)) {
     errors.push('Hasło musi zawierać przynajmniej jeden znak specjalny');
   }
   
@@ -54,6 +55,7 @@ export const validatePassword = (password) => {
  */
 export const calculatePasswordStrength = (password) => {
   let score = 0;
+  const hasSpecial = (pwd) => /[^a-zA-Z0-9]/.test(pwd || '');
   
   // Długość
   if (password.length >= 8) score += 10;
@@ -64,7 +66,7 @@ export const calculatePasswordStrength = (password) => {
   if (/[a-z]/.test(password)) score += 10;
   if (/[A-Z]/.test(password)) score += 10;
   if (/\d/.test(password)) score += 10;
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 10;
+  if (hasSpecial(password)) score += 10;
   
   // Dodatkowe punkty za różnorodność
   const uniqueChars = new Set(password).size;

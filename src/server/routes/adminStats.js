@@ -20,15 +20,18 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const getDateCondition = (range) => {
       const now = new Date();
       switch (range) {
-        case 'today':
+        case 'today': {
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           return `AND created_at >= '${today.toISOString()}'`;
-        case 'week':
+        }
+        case 'week': {
           const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           return `AND created_at >= '${weekAgo.toISOString()}'`;
-        case 'month':
+        }
+        case 'month': {
           const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           return `AND created_at >= '${monthAgo.toISOString()}'`;
+        }
         default:
           return '';
       }
@@ -41,7 +44,8 @@ router.get('/stats', authenticateToken, async (req, res) => {
       total: 0,
       active: 0,
       new: 0,
-      retention: 0
+      retention: 0,
+      topActive: []
     };
     
     // Całkowita liczba użytkowników
@@ -68,12 +72,40 @@ router.get('/stats', authenticateToken, async (req, res) => {
     // Retencja (uproszczona - procent użytkowników z aktywnością)
     userStats.retention = userStats.total > 0 ? Math.round((userStats.active / userStats.total) * 100) : 0;
     
+    // Najaktywniejszi użytkownicy (top 10)
+    const topActiveUsers = await db.all(`
+      SELECT 
+        u.id,
+        u.email,
+        COALESCE(us.total_listening_time, 0) as totalListeningTime,
+        COALESCE(us.total_episodes_completed, 0) as completedCount,
+        COALESCE(us.last_active, u.created_at) as lastActive
+      FROM users u
+      LEFT JOIN user_stats us ON u.id = us.user_id
+      WHERE us.total_listening_time > 0 OR us.total_episodes_completed > 0
+      ORDER BY 
+        COALESCE(us.total_listening_time, 0) DESC,
+        COALESCE(us.total_episodes_completed, 0) DESC,
+        us.last_active DESC
+      LIMIT 10
+    `);
+    
+    userStats.topActive = topActiveUsers.map(user => ({
+      id: user.id,
+      email: user.email,
+      totalListeningTime: user.totalListeningTime || 0,
+      completedCount: user.completedCount || 0,
+      lastActive: user.lastActive
+    }));
+    
     // Statystyki odcinków
     const episodeStats = {
       total: 0,
       averageRating: 0,
       completionRate: 0,
-      averageCompletionTime: 0
+      averageCompletionTime: 0,
+      topPopular: [],
+      mostAbandoned: []
     };
     
     // Całkowita liczba odcinków
@@ -97,11 +129,67 @@ router.get('/stats', authenticateToken, async (req, res) => {
     `);
     episodeStats.averageCompletionTime = avgCompletionTime.avg_time ? Math.round(avgCompletionTime.avg_time / 60) : 0;
     
+    // Najpopularniejsze odcinki (na podstawie liczby odtworzeń)
+    const topPopularEpisodes = await db.all(`
+      SELECT 
+        e.id,
+        e.title,
+        s.name as seriesName,
+        COUNT(DISTINCT up.user_id) as listensCount,
+        AVG(r.rating) as averageRating
+      FROM episodes e
+      LEFT JOIN series s ON e.series_id = s.id
+      LEFT JOIN user_progress up ON e.id = up.episode_id
+      LEFT JOIN ratings r ON e.id = r.episode_id
+      GROUP BY e.id, e.title, s.name
+      HAVING listensCount > 0
+      ORDER BY listensCount DESC, averageRating DESC
+      LIMIT 10
+    `);
+    
+    episodeStats.topPopular = topPopularEpisodes.map(episode => ({
+      id: episode.id,
+      title: episode.title,
+      seriesName: episode.seriesName,
+      listensCount: episode.listensCount || 0,
+      averageRating: episode.averageRating || null
+    }));
+    
+    // Odcinki z najwyższym współczynnikiem porzucania
+    const mostAbandonedEpisodes = await db.all(`
+      SELECT 
+        e.id,
+        e.title,
+        s.name as seriesName,
+        COUNT(up.user_id) as totalStarts,
+        COUNT(CASE WHEN up.completed = 0 AND up.position > 0 AND up.position < 300 THEN 1 END) as abandoned,
+        ROUND(
+          (COUNT(CASE WHEN up.completed = 0 AND up.position > 0 AND up.position < 300 THEN 1 END) * 100.0 / 
+           NULLIF(COUNT(up.user_id), 0)), 1
+        ) as abandonmentRate
+      FROM episodes e
+      LEFT JOIN series s ON e.series_id = s.id
+      LEFT JOIN user_progress up ON e.id = up.episode_id
+      GROUP BY e.id, e.title, s.name
+      HAVING totalStarts >= 3
+      ORDER BY abandonmentRate DESC
+      LIMIT 10
+    `);
+    
+    episodeStats.mostAbandoned = mostAbandonedEpisodes.map(episode => ({
+      id: episode.id,
+      title: episode.title,
+      seriesName: episode.seriesName,
+      abandonmentRate: episode.abandonmentRate || 0
+    }));
+    
     // Statystyki serii
     const seriesStats = {
       total: 0,
       active: 0,
-      averageCompletion: 0
+      averageCompletion: 0,
+      topRated: null,
+      details: []
     };
     
     // Całkowita liczba serii
@@ -131,6 +219,64 @@ router.get('/stats', authenticateToken, async (req, res) => {
       )
     `);
     seriesStats.averageCompletion = seriesCompletion.avg_completion ? Math.round(seriesCompletion.avg_completion) : 0;
+    
+    // Najwyżej oceniana seria
+    const topRatedSeries = await db.get(`
+      SELECT 
+        s.id,
+        s.name,
+        AVG(r.rating) as rating,
+        COUNT(r.rating) as ratingCount
+      FROM series s
+      LEFT JOIN episodes e ON s.id = e.series_id
+      LEFT JOIN ratings r ON e.id = r.episode_id
+      GROUP BY s.id, s.name
+      HAVING ratingCount >= 3
+      ORDER BY rating DESC
+      LIMIT 1
+    `);
+    
+    if (topRatedSeries) {
+      seriesStats.topRated = {
+        id: topRatedSeries.id,
+        name: topRatedSeries.name,
+        rating: topRatedSeries.rating
+      };
+    }
+    
+    // Szczegółowe statystyki serii
+    const seriesDetails = await db.all(`
+      SELECT 
+        s.id,
+        s.name,
+        COUNT(DISTINCT e.id) as episodeCount,
+        COUNT(DISTINCT up.user_id) as activeUsers,
+        SUM(COALESCE(up.position, 0)) as totalListeningTime,
+        ROUND(
+          (COUNT(CASE WHEN up.completed = 1 THEN 1 END) * 100.0 / 
+           NULLIF(COUNT(up.episode_id), 0)), 1
+        ) as completionRate,
+        AVG(r.rating) as averageRating
+      FROM series s
+      LEFT JOIN episodes e ON s.id = e.series_id
+      LEFT JOIN user_progress up ON e.id = up.episode_id
+      LEFT JOIN ratings r ON e.id = r.episode_id
+      WHERE s.active = 1
+      GROUP BY s.id, s.name
+      HAVING episodeCount > 0
+      ORDER BY totalListeningTime DESC, activeUsers DESC
+      LIMIT 20
+    `);
+    
+    seriesStats.details = seriesDetails.map(series => ({
+      id: series.id,
+      name: series.name,
+      episodeCount: series.episodeCount || 0,
+      activeUsers: series.activeUsers || 0,
+      totalListeningTime: series.totalListeningTime || 0,
+      completionRate: series.completionRate || 0,
+      averageRating: series.averageRating || null
+    }));
     
     // Statystyki techniczne
     const technicalStats = {

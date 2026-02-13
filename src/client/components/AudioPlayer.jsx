@@ -4,15 +4,12 @@ import { useLanguage } from '../contexts/LanguageContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import axios from 'axios';
 import StarRating from './StarRating';
-import { AUTO_PLAY_ENABLED } from '../config.js';
-import { getNextEpisodeToPlay } from '../utils/autoPlayQueue.js';
 
-const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartId, onAutoStartConsumed }) => {
+const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo }) => {
   const { t, formatDate } = useLanguage();
   const { isDarkMode } = useTheme();
   const { user } = useAuth();
   const audioRef = useRef(null);
-  // Automatyczny start po załadowaniu został wyłączony – odtwarzanie tylko po ręcznej akcji użytkownika
   
   // Stan playera
   const [isPlaying, setIsPlaying] = useState(false);
@@ -26,19 +23,13 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
   const [showAllTopics, setShowAllTopics] = useState(false);
   const [showFullInfo, setShowFullInfo] = useState(false);
   const [userRating, setUserRating] = useState(0);
-  const [averageRating, setAverageRating] = useState(0);
-  const [ratingCount, setRatingCount] = useState(0);
-  const [autoPlay, setAutoPlay] = useState(() => {
-    try {
-      const v = localStorage.getItem('audio.autoPlay');
-      return v ? JSON.parse(v) : false;
-    } catch {
-      return false;
-    }
-  });
-  // Autoodtwarzanie następnego odcinka zostało usunięte. Pozostawiamy tylko natychmiastowe
-  // odtwarzanie po ręcznym wyborze odcinka (inicjowane przez użytkownika).
-  
+
+  // Autoplay state
+  const [nextEpisode, setNextEpisode] = useState(null);
+  const [autoplayCountdown, setAutoplayCountdown] = useState(0);
+  const [autoplayTimerId, setAutoplayTimerId] = useState(null);
+  const [showAutoplayPreview, setShowAutoplayPreview] = useState(false);
+
   // Stan dla trackingu osiągnięć
   const [sessionStartTime, setSessionStartTime] = useState(null);
   
@@ -47,8 +38,6 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
 
   // Pobierz kolor serii z seriesInfo lub użyj domyślnego
   const seriesColor = seriesInfo?.color || episode?.series_info?.color || '#3B82F6';
-
-  // Automatyczny start po zmianie odcinka został wyłączony
 
   // Oblicz numer odcinka w serii
   const getEpisodeNumber = () => {
@@ -127,6 +116,75 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Pobierz następny odcinek do autoplay
+  const fetchNextEpisode = async () => {
+    if (!episode?.id || !user) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`/api/episodes/next/${episode.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.nextEpisode) {
+        setNextEpisode(response.data.nextEpisode);
+        return response.data.nextEpisode;
+      }
+    } catch (error) {
+      console.error('Błąd pobierania następnego odcinka:', error);
+    }
+    return null;
+  };
+
+  // Rozpocznij autoplay countdown
+  const startAutoplayCountdown = (nextEp) => {
+    if (!nextEp) return;
+    
+    setShowAutoplayPreview(true);
+    setAutoplayCountdown(10); // 10 sekund countdown
+    
+    const timerId = setInterval(() => {
+      setAutoplayCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timerId);
+          playNextEpisode(nextEp);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    setAutoplayTimerId(timerId);
+  };
+
+  // Odtwórz następny odcinek
+  const playNextEpisode = (nextEp) => {
+    if (nextEp && onEpisodeChange) {
+      setShowAutoplayPreview(false);
+      setAutoplayCountdown(0);
+      onEpisodeChange(nextEp);
+    }
+  };
+
+  // Anuluj autoplay
+  const cancelAutoplay = () => {
+    if (autoplayTimerId) {
+      clearInterval(autoplayTimerId);
+      setAutoplayTimerId(null);
+    }
+    setShowAutoplayPreview(false);
+    setAutoplayCountdown(0);
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoplayTimerId) {
+        clearInterval(autoplayTimerId);
+      }
+    };
+  }, [autoplayTimerId]);
 
   // Zapisz postęp
   const saveProgress = async () => {
@@ -224,7 +282,6 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
     console.log('Audio src:', episode?.audioUrl);
     console.log('Duration:', duration);
     console.log('Current time:', currentTime);
-    // autoplay następnego odcinka – usunięte
     console.log('User:', user?.id);
     
     if (user) {
@@ -240,164 +297,46 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
         console.log('Episode marked as completed successfully');
 
         // Rejestruj sesję dla osiągnięć z completion_rate = 1.0
-        if (user) {
-          const now = new Date().toISOString();
-          const sessionData = {
-            episodeId: episode.id,
-            startTime: sessionStartTime || now,
-            endTime: now,
-            playbackSpeed: playbackRate,
-            completionRate: 1.0, // 100% ukończony
-            durationSeconds: Math.floor(duration)
-          };
-          
-          try {
-            await axios.post('/api/achievements/record-session', sessionData);
-            console.log('Session recorded with completion_rate = 1.0');
-          } catch (error) {
-            console.error('Błąd podczas rejestrowania sesji ukończenia:', error);
-          }
+        const now = new Date().toISOString();
+        const sessionData = {
+          episodeId: episode.id,
+          startTime: sessionStartTime || now,
+          endTime: now,
+          playbackSpeed: playbackRate,
+          completionRate: 1.0,
+          durationSeconds: Math.floor(duration)
+        };
+        try {
+          await axios.post('/api/achievements/record-session', sessionData);
+          console.log('Session recorded with completion_rate = 1.0');
+        } catch (error) {
+          console.error('Błąd podczas rejestrowania sesji ukończenia:', error);
         }
-        
-        // Automatyczne odtwarzanie następnego odcinka – usunięte
+
         // Odśwież listy po ukończeniu (HomePage przeładuje sekcje)
         try { window.dispatchEvent(new Event('episode-completed')); } catch {}
-
-        // Opcjonalne autoodtwarzanie z inteligentną kolejką (feature-flag + toggle)
-        if (AUTO_PLAY_ENABLED && autoPlay) {
-          try {
-            const token = localStorage.getItem('token');
-            const resp = await fetch('/api/episodes/my', { headers: { Authorization: `Bearer ${token}` } });
-            const data = resp.ok ? await resp.json() : { new: [], inProgress: [], completed: [] };
-            const all = [ ...(data.inProgress || []), ...(data.new || []), ...(data.completed || []) ];
-
-            // Kolejność serii według preferencji użytkownika; jeśli 'all' lub brak, użyj porządku po id
-            let favoritesSeriesOrdered = [];
-            if (user && user.preferences && Array.isArray(user.preferences.activeSeries) && user.preferences.activeSeries.length > 0) {
-              favoritesSeriesOrdered = user.preferences.activeSeries.map((id) => parseInt(id));
-            } else {
-              favoritesSeriesOrdered = Array.from(new Set(all.map(e => e.series_id))).sort((a, b) => (a || 0) - (b || 0));
-            }
-
-            const history = {
-              isUnfinished: (id) => {
-                const ep = all.find(e => String(e.id) === String(id));
-                if (!ep) return false;
-                if (ep.completed) return false;
-                // unfinished: faktycznie rozpoczęty (position > 0), ale nieukończony
-                return ((ep.position ?? ep.user_position ?? 0) > 0) && !ep.completed;
-              },
-              isListened: (id) => {
-                const ep = all.find(e => String(e.id) === String(id));
-                return !!(ep && ep.completed);
-              }
-            };
-
-            const episodesApi = {
-              listBySeries: async (seriesId) => {
-                const list = all.filter(e => String(e.series_id) === String(seriesId) && String(e.id) !== String(episode.id));
-                const withOrder = [...list].sort((a, b) => {
-                  if (a.episode_number != null && b.episode_number != null) return a.episode_number - b.episode_number;
-                  const da = a.date_added ? new Date(a.date_added).getTime() : 0;
-                  const db = b.date_added ? new Date(b.date_added).getTime() : 0;
-                  return da - db;
-                });
-                return withOrder;
-              }
-            };
-
-            // Daj DB chwilę na domknięcie transakcji ukończenia, zanim czytamy listy
-            await new Promise(r => setTimeout(r, 300));
-
-            let next = await getNextEpisodeToPlay({
-              currentEpisodeId: episode.id,
-              currentSeriesId: episode.series_id,
-              favoritesSeriesOrdered,
-              history,
-              episodesApi
-            });
-
-            // Bezpiecznik: nie wybieraj bieżącego odcinka ponownie
-            if (next && String(next.id) === String(episode.id)) {
-              // Spróbuj znaleźć pierwszy niesłuchany z innej serii
-              const allOther = all.filter(e => String(e.series_id) !== String(episode.series_id));
-              next = allOther.find(e => !e.completed && ((e.position || 0) === 0));
-            }
-
-            if (next && next.id && typeof window !== 'undefined') {
-              try { console.log('[autoPlay] next-picked', { episodeId: next.id, seriesId: next.series_id }); } catch {}
-              window.dispatchEvent(new CustomEvent('request-play-episode', { detail: { episodeId: next.id, autoStart: true } }));
-            }
-          } catch (e) {
-            console.warn('[autoPlay] queue error', e);
+        
+        // Sprawdź czy autoplay jest włączony w preferencjach użytkownika
+        const userPrefs = user.preferences || {};
+        const autoPlayEnabled = userPrefs.autoPlay !== false; // Default true
+        
+        if (autoPlayEnabled) {
+          console.log('Autoplay enabled, fetching next episode...');
+          const nextEp = await fetchNextEpisode();
+          if (nextEp) {
+            console.log('Found next episode:', nextEp.title);
+            startAutoplayCountdown(nextEp);
+          } else {
+            console.log('No next episode found');
           }
+        } else {
+          console.log('Autoplay disabled in user preferences');
         }
       } catch (error) {
         console.error('Błąd podczas oznaczania odcinka jako ukończony:', error);
       }
     }
-  }, [episode, user, duration, playbackRate, sessionStartTime, autoPlay]);
-
-  // Toggle ulubione
-  const toggleFavorite = async () => {
-    if (!episode?.id) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      if (isFavorite) {
-        // Usuń z ulubionych
-        const response = await axios.delete(`/api/episodes/${episode.id}/favorite`, { headers });
-        setIsFavorite(response.data.isFavorite);
-      } else {
-        // Dodaj do ulubionych
-        const response = await axios.post(`/api/episodes/${episode.id}/favorite`, {}, { headers });
-        setIsFavorite(response.data.isFavorite);
-      }
-      
-      // Wyślij event do odświeżenia listy odcinków
-      window.dispatchEvent(new Event('episode-favorite-toggled'));
-    } catch (error) {
-      console.error('Błąd zmiany ulubionych:', error);
-    }
-  };
-
-  // Obsługa oceniania
-  const handleRatingChange = async (rating) => {
-    if (!episode?.id) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      await axios.post(`/api/episodes/${episode.id}/rating`, { rating }, { headers });
-      setUserRating(rating);
-      
-      // Odśwież dane odcinka po ocenieniu
-      const response = await fetch(`/api/episodes/${episode.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        const updatedEpisode = await response.json();
-        // Aktualizuj episode object z nowymi danymi
-        if (updatedEpisode.user_rating !== undefined) {
-          setUserRating(updatedEpisode.user_rating);
-        }
-      }
-      // Wywołaj callback do odświeżenia listy odcinków
-      if (typeof onRatingChange === 'function') {
-        onRatingChange();
-      }
-      // Wywołaj globalny event do odświeżenia statystyk
-      window.dispatchEvent(new Event('user-rated-episode'));
-      // Wywołaj event do odświeżenia listy odcinków
-      window.dispatchEvent(new Event('episode-rated'));
-    } catch (error) {
-      console.error('Błąd podczas oceniania odcinka:', error);
-    }
-  };
+  }, [episode, user, duration, playbackRate, sessionStartTime, fetchNextEpisode, startAutoplayCountdown]);
 
   const currentTopic = topics[currentTopicIndex] || null;
 
@@ -459,15 +398,6 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
         onLoadStart={() => console.log('Audio loading started:', episode?.audioUrl)}
         onCanPlay={() => {
           console.log('Audio can play:', episode?.audioUrl);
-          // Autostart na ręczny wybór lub gdy kolejka poprosiła o autoStart
-          if (requestedAutoStartId && String(requestedAutoStartId) === String(episode?.id)) {
-            if (audioRef.current) {
-              audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-            }
-            if (typeof onAutoStartConsumed === 'function') {
-              onAutoStartConsumed();
-            }
-          }
         }}
       />
 
@@ -479,7 +409,7 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
           </h2>
           <StarRating
             rating={userRating}
-            onRatingChange={handleRatingChange}
+            onRatingChange={(val) => setUserRating(val)}
             size="lg"
             className="flex-shrink-0"
           />
@@ -677,7 +607,23 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
 
           {/* Ulubione */}
           <button
-            onClick={toggleFavorite}
+            onClick={async () => {
+              if (!episode?.id) return;
+              try {
+                const token = localStorage.getItem('token');
+                const headers = { Authorization: `Bearer ${token}` };
+                if (isFavorite) {
+                  const response = await axios.delete(`/api/episodes/${episode.id}/favorite`, { headers });
+                  setIsFavorite(response.data.isFavorite);
+                } else {
+                  const response = await axios.post(`/api/episodes/${episode.id}/favorite`, {}, { headers });
+                  setIsFavorite(response.data.isFavorite);
+                }
+                try { window.dispatchEvent(new Event('episode-favorite-toggled')); } catch {}
+              } catch (error) {
+                console.error('Błąd zmiany ulubionych:', error);
+              }
+            }}
             className={`p-2 rounded-lg ${isDarkMode ? 'hover:bg-dark-bg' : 'hover:bg-gray-100'} transition-colors`}
             title={isFavorite ? t('audioPlayer.removeFromFavorites') : t('audioPlayer.addToFavorites')}
             data-testid="favorite-button"
@@ -755,23 +701,63 @@ const AudioPlayer = ({ episode, onEpisodeChange, seriesInfo, requestedAutoStartI
           </div>
         </div>
       )}
-
-      {/* Toggle Autoodtwarzania – pod polem z dodatkowymi informacjami */}
-      <div className="mt-4 flex items-center justify-end gap-2">
-        <span className={`text-xs ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Automatyczne odtwarzanie</span>
-        <button
-          onClick={() => {
-            const v = !autoPlay;
-            setAutoPlay(v);
-            try { localStorage.setItem('audio.autoPlay', JSON.stringify(v)); } catch {}
-          }}
-          aria-label="Automatyczne odtwarzanie"
-          aria-pressed={autoPlay}
-          className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors ${autoPlay ? 'bg-primary' : (isDarkMode ? 'bg-gray-600' : 'bg-gray-300')}`}
-        >
-          <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${autoPlay ? 'translate-x-7' : 'translate-x-1'}`} />
-        </button>
-      </div>
+      
+      {/* Autoplay overlay */}
+      {showAutoplayPreview && nextEpisode && (
+        <div className="absolute inset-0 bg-black/75 flex items-center justify-center z-50 rounded-2xl">
+          <div className={`max-w-md mx-4 p-6 rounded-xl ${isDarkMode ? 'bg-dark-surface' : 'bg-white'} shadow-2xl`}>
+            <div className="text-center">
+              <div className="mb-4">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold">
+                  {autoplayCountdown}
+                </div>
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
+                  {t('audioPlayer.nextEpisode')}
+                </h3>
+                <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {t('audioPlayer.autoplayCountdown').replace('{seconds}', autoplayCountdown)}
+                </p>
+              </div>
+              
+              <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-dark-bg' : 'bg-gray-50'} mb-4`}>
+                <div 
+                  className="w-12 h-12 mx-auto mb-2 rounded-lg flex items-center justify-center text-white font-bold"
+                  style={{ backgroundColor: nextEpisode.series_color || '#3B82F6' }}
+                >
+                  <span className="text-lg">
+                    {String(nextEpisode.episode_number || '001').padStart(3, '0')}
+                  </span>
+                </div>
+                <h4 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1`}>
+                  {nextEpisode.title}
+                </h4>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {nextEpisode.series_name}
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => playNextEpisode(nextEpisode)}
+                  className="flex-1 px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg font-medium transition-colors"
+                >
+                  {t('audioPlayer.playNow')}
+                </button>
+                <button
+                  onClick={cancelAutoplay}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-colors ${
+                    isDarkMode 
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  }`}
+                >
+                  {t('audioPlayer.cancelAutoplay')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

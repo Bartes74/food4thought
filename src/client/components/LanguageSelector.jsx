@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const LanguageSelector = () => {
   const { language, changeLanguage, t } = useLanguage();
+  const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -13,6 +15,9 @@ const LanguageSelector = () => {
   ];
 
   const currentLang = languages.find(lang => lang.code === language);
+  const triggerClass = isDarkMode
+    ? 'bg-white/10 hover:bg-white/20 text-slate-100'
+    : 'bg-slate-200 hover:bg-slate-300 text-slate-700 border border-slate-300';
 
   // Zamknij dropdown po kliknięciu poza nim
   useEffect(() => {
@@ -30,7 +35,7 @@ const LanguageSelector = () => {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl transition-colors duration-200 text-white"
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-200 ${triggerClass}`}
         aria-label="Change language"
       >
         <span className="text-xl">{currentLang.flag}</span>

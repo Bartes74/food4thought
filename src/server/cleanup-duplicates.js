@@ -8,10 +8,9 @@ const __dirname = path.dirname(__filename);
 const { verbose } = sqlite3;
 const SQLite3 = verbose();
 
-// Ścieżka do pliku bazy danych
-const dbPath = path.join(__dirname, '../food4thought.db');
+// Ścieżka do pliku bazy danych (prod data dir)
+const dbPath = path.join(__dirname, '..', 'data', 'food4thought.db');
 
-// Połączenie z bazą
 const db = new SQLite3.Database(dbPath, (err) => {
   if (err) {
     console.error('❌ Błąd połączenia z bazą danych:', err);
@@ -23,9 +22,9 @@ const db = new SQLite3.Database(dbPath, (err) => {
 
 console.log('🧹 Rozpoczynam czyszczenie duplikatów serii...');
 
-getDb().serialize(() => {
+db.serialize(() => {
   // Najpierw pokaż duplikaty
-  getDb().all(`
+  db.all(`
     SELECT name, COUNT(*) as count 
     FROM series 
     GROUP BY name 
@@ -33,19 +32,18 @@ getDb().serialize(() => {
   `, (err, duplicates) => {
     if (err) {
       console.error('❌ Błąd sprawdzania duplikatów:', err);
-      return;
+      return db.close();
     }
     
     if (duplicates.length === 0) {
       console.log('✅ Brak duplikatów serii');
-      getDb().close();
-      return;
+      return db.close();
     }
     
     console.log(`⚠️  Znaleziono duplikaty dla: ${duplicates.map(d => d.name).join(', ')}`);
     
     // Usuń duplikaty - zostaw tylko pierwsze wystąpienie każdej nazwy
-    getDb().run(`
+    db.run(`
       DELETE FROM series 
       WHERE id NOT IN (
         SELECT MIN(id) 
@@ -60,15 +58,14 @@ getDb().serialize(() => {
       }
       
       // Pokaż końcowy stan
-      getDb().all(`SELECT id, name, episode_count FROM series ORDER BY name`, (err, series) => {
-        if (!err) {
+      db.all(`SELECT id, name FROM series ORDER BY name`, (err2, series) => {
+        if (!err2) {
           console.log('\n📋 Aktualne serie:');
           series.forEach(s => {
             console.log(`   - ${s.name} (ID: ${s.id})`);
           });
         }
-        
-        getDb().close();
+        db.close();
       });
     });
   });

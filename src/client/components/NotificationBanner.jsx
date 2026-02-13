@@ -37,18 +37,11 @@ const NotificationBanner = () => {
     setIsLoading(true);
     try {
       await axios.post(`/api/notifications/${notificationId}/dismiss`);
-      
-      // Usuń powiadomienie z listy
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      
-      // Jeśli to było ostatnie powiadomienie, ukryj banner
       if (notifications.length <= 1) {
         setIsVisible(false);
       } else {
-        // Przejdź do następnego powiadomienia
-        setCurrentNotificationIndex(prev => 
-          prev >= notifications.length - 1 ? 0 : prev + 1
-        );
+        setCurrentNotificationIndex(prev => prev >= notifications.length - 1 ? 0 : prev + 1);
       }
     } catch (error) {
       console.error('Błąd odrzucania powiadomienia:', error);
@@ -58,29 +51,24 @@ const NotificationBanner = () => {
   };
 
   const handleNext = () => {
-    setCurrentNotificationIndex(prev => 
-      prev >= notifications.length - 1 ? 0 : prev + 1
-    );
+    setCurrentNotificationIndex(prev => prev >= notifications.length - 1 ? 0 : prev + 1);
   };
 
   const handlePrevious = () => {
-    setCurrentNotificationIndex(prev => 
-      prev <= 0 ? notifications.length - 1 : prev - 1
-    );
+    setCurrentNotificationIndex(prev => prev <= 0 ? notifications.length - 1 : prev - 1);
   };
 
-  if (!isVisible || notifications.length === 0) {
-    return null;
-  }
-
+  // Zarejestruj wyświetlenie przy zmianie bieżącego powiadomienia
   const currentNotification = notifications[currentNotificationIndex];
-
-  // Zarejestruj wyświetlenie przy pierwszym renderowaniu
   useEffect(() => {
     if (currentNotification) {
       handleView(currentNotification.id);
     }
   }, [currentNotification]);
+
+  if (!isVisible || notifications.length === 0) {
+    return null;
+  }
 
   return (
     <div className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white shadow-lg">

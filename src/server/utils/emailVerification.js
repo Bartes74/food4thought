@@ -1,8 +1,14 @@
-import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import pkg from 'nodemailer';
 const { createTransport } = pkg;
 import { getDb } from '../database.js';
+
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+  return process.env.JWT_SECRET;
+};
 
 /**
  * Generuje token weryfikacyjny dla email
@@ -11,7 +17,7 @@ export const generateVerificationToken = (userId, email) => {
   try {
     return jwt.sign(
       { userId, email, type: 'email_verification' },
-      process.env.JWT_SECRET || 'your-secret-key',
+      getJwtSecret(),
       { expiresIn: '24h' }
     );
   } catch (error) {
@@ -25,7 +31,7 @@ export const generateVerificationToken = (userId, email) => {
  */
 export const verifyEmailToken = (token) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, getJwtSecret());
     if (decoded.type !== 'email_verification') {
       throw new Error('Invalid token type');
     }
@@ -137,17 +143,24 @@ export const generateVerificationEmail = (email, verificationUrl) => {
  * Tworzy transporter email
  */
 const createTransporter = () => {
-  // Konfiguracja dla Zenbox SMTP
+  const emailHost = process.env.EMAIL_HOST;
+  const emailPort = Number(process.env.EMAIL_PORT || 587);
+  const emailUser = process.env.EMAIL_USER;
+  const emailPass = process.env.EMAIL_PASS;
+
+  if (!emailHost || !emailUser || !emailPass) {
+    throw new Error('SMTP configuration is incomplete');
+  }
+
+  const secure = emailPort === 465;
+
   const transporter = createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.zenbox.pl',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false, // true dla 465, false dla innych portów
+    host: emailHost,
+    port: emailPort,
+    secure,
     auth: {
-      user: process.env.EMAIL_USER || 'food4thought@dajer.pl',
-      pass: process.env.EMAIL_PASS || 'Dunczyk1974!'
-    },
-    tls: {
-      rejectUnauthorized: false // Dla niektórych serwerów SMTP
+      user: emailUser,
+      pass: emailPass
     }
   });
   
@@ -162,18 +175,35 @@ export const sendVerificationEmail = async (email, verificationUrl) => {
     // Sprawdź czy konfiguracja email jest dostępna
     const emailUser = process.env.EMAIL_USER;
     const emailPass = process.env.EMAIL_PASS;
+    const isDevelopment = process.env.NODE_ENV !== 'production';
     
-    if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com') {
-      // Fallback do mock email dla celów deweloperskich
-      console.log('📧 Email weryfikacyjny wysłany na:', email);
+    // W środowisku deweloperskim lub bez konfiguracji email - użyj mock
+    if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com' || isDevelopment) {
+      console.log('📧 Mock email weryfikacyjny - tryb deweloperski');
       console.log('🔗 Link weryfikacyjny:', verificationUrl);
       console.log('\n=== EMAIL WERYFIKACYJNY ===');
       console.log('Do:', email);
       console.log('Temat: Potwierdź swój adres email - Food 4 Thought');
       console.log('Link:', verificationUrl);
       console.log('===========================\n');
-      console.log('⚠️  Uwaga: Konfiguracja email nie jest ustawiona. Email nie został wysłany.');
-      console.log('   Aby wysyłać rzeczywiste emaile, ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS');
+      
+      if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com') {
+        console.log('⚠️  Uwaga: Konfiguracja email nie jest ustawiona.');
+        console.log('   Aby wysyłać rzeczywiste emaile, ustaw zmienne środowiskowe EMAIL_USER i EMAIL_PASS');
+      }
+      
+      return true;
+    }
+    
+    // Jeśli email zawiera example.com - użyj mock zamiast próbować wysłać
+    if (email.includes('example.com')) {
+      console.log('📧 Mock email weryfikacyjny - wykryto adres testowy');
+      console.log('🔗 Link weryfikacyjny:', verificationUrl);
+      console.log('\n=== EMAIL WERYFIKACYJNY ===');
+      console.log('Do:', email);
+      console.log('Temat: Potwierdź swój adres email - Food 4 Thought');
+      console.log('Link:', verificationUrl);
+      console.log('===========================\n');
       return true;
     }
     

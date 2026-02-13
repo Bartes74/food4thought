@@ -32,8 +32,12 @@ export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState(getInitialLanguage());
 
   useEffect(() => {
-    localStorage.setItem('language', language);
-    document.documentElement.lang = language;
+    try {
+      localStorage.setItem('language', language);
+      document.documentElement.lang = language;
+    } catch (e) {
+      // ignore storage errors in environments without localStorage
+    }
   }, [language]);
 
   // Mapowanie kodu języka na locale do formatowania dat/liczb
@@ -61,14 +65,14 @@ export const LanguageProvider = ({ children }) => {
       value = resolve(lang);
       if (value !== undefined) {
         if (process.env.NODE_ENV !== 'production') {
-          try { console.warn(`[i18n] Missing key for '${language}': ${key}. Using fallback '${lang}'.`); } catch {}
+          try { console.warn(`[i18n] Missing key for '${language}': ${key}. Using fallback '${lang}'.`); } catch (e) {}
         }
         return value;
       }
     }
 
     if (process.env.NODE_ENV !== 'production') {
-      try { console.warn(`[i18n] Missing translation key in all languages: ${key}`); } catch {}
+      try { console.warn(`[i18n] Missing translation key in all languages: ${key}`); } catch (e) {}
     }
     // Last resort: return empty string to avoid showing raw keys in UI
     return '';
@@ -81,7 +85,7 @@ export const LanguageProvider = ({ children }) => {
       const d = dateLike instanceof Date ? dateLike : new Date(dateLike);
       if (Number.isNaN(d.getTime())) return '';
       return d.toLocaleDateString(locale);
-    } catch {
+    } catch (e) {
       return '';
     }
   };
@@ -91,7 +95,7 @@ export const LanguageProvider = ({ children }) => {
     try {
       const locale = languageToLocale[language] || 'pl-PL';
       return new Intl.NumberFormat(locale, options).format(value);
-    } catch {
+    } catch (e) {
       return String(value ?? '');
     }
   };

@@ -285,4 +285,150 @@ test.describe('Funkcjonalności odcinków', () => {
     const hasNumber = /\b\d{3}\b/.test((await episodeNumberText.textContent()) || '');
     expect(hasNumber).toBeTruthy();
   });
+
+  test('powinien obsłużyć odcinek bez pliku audio', async ({ page }) => {
+    // Znajdź odcinki (elastyczne selektory)
+    const episodes = page.locator('[data-testid="episode-item"], .episode-item, .episode-card, [data-testid="episode-card"]');
+    const episodeCount = await episodes.count();
+    
+    if (episodeCount > 0) {
+      // Otwórz pierwszy odcinek
+      await episodes.first().click();
+      
+      // Poczekaj na załadowanie AudioPlayer
+      try {
+        await expect(page.locator('[data-testid="audio-player"], .audio-player, .player, [data-testid="player"]')).toBeVisible({ timeout: 10000 });
+        
+        // Sprawdź czy przycisk odtwarzania jest wyłączony gdy brak audio
+        const playButton = page.locator('button[aria-label*="Odtwórz"], button[aria-label*="Play"], button[title*="Odtwórz"], button[title*="Play"]');
+        if (await playButton.isVisible()) {
+          const isDisabled = await playButton.isDisabled();
+          
+          if (isDisabled) {
+            console.log('Correct: Play button is disabled when no audio file is available');
+            
+            // Sprawdź czy jest komunikat o braku pliku audio
+            const noAudioMessage = page.locator('text=/Plik audio niedostępny|No audio file|Audio file unavailable/i');
+            if (await noAudioMessage.isVisible()) {
+              console.log('Audio unavailable message is shown');
+            }
+          } else {
+            console.log('Play button is enabled - audio file is available');
+          }
+        }
+      } catch (e) {
+        console.log('AudioPlayer not found, skipping audio test');
+      }
+    } else {
+      console.log('No episodes found, skipping audio test');
+    }
+  });
+
+  test('powinien wyświetlić informacje o jakości audio', async ({ page }) => {
+    // Znajdź odcinki (elastyczne selektory)
+    const episodes = page.locator('[data-testid="episode-item"], .episode-item, .episode-card, [data-testid="episode-card"]');
+    const episodeCount = await episodes.count();
+    
+    if (episodeCount > 0) {
+      // Otwórz pierwszy odcinek
+      await episodes.first().click();
+      
+      // Poczekaj na załadowanie AudioPlayer
+      try {
+        await expect(page.locator('[data-testid="audio-player"], .audio-player, .player, [data-testid="player"]')).toBeVisible({ timeout: 10000 });
+        
+        // Sprawdź czy są informacje o języku odcinka
+        const languageInfo = page.locator('text=/Polski|English|Français|polski|angielski|francuski/i');
+        if (await languageInfo.isVisible()) {
+          console.log('Language information is displayed');
+        }
+        
+        // Sprawdź czy jest informacja o formacie audio (MP3)
+        const formatInfo = page.locator('text=/MP3|mp3|Audio format/i');
+        if (await formatInfo.isVisible()) {
+          console.log('Audio format information is displayed');
+        }
+      } catch (e) {
+        console.log('AudioPlayer not found, skipping audio quality test');
+      }
+    } else {
+      console.log('No episodes found, skipping audio quality test');
+    }
+  });
+
+  test('powinien umożliwić zmianę prędkości odtwarzania', async ({ page }) => {
+    // Znajdź odcinki (elastyczne selektory)
+    const episodes = page.locator('[data-testid="episode-item"], .episode-item, .episode-card, [data-testid="episode-card"]');
+    const episodeCount = await episodes.count();
+    
+    if (episodeCount > 0) {
+      // Otwórz pierwszy odcinek
+      await episodes.first().click();
+      
+      // Poczekaj na załadowanie AudioPlayer
+      try {
+        await expect(page.locator('[data-testid="audio-player"], .audio-player, .player, [data-testid="player"]')).toBeVisible({ timeout: 10000 });
+        
+        // Znajdź kontrolkę prędkości (przycisk z tekstem jak "1×", "1.25×")
+        const speedButton = page.locator('button:has-text("1×"), button:has-text("1.0×"), [data-testid="speed-control"]');
+        if (await speedButton.isVisible()) {
+          // Sprawdź początkową prędkość
+          const initialSpeed = await speedButton.textContent();
+          console.log('Initial speed:', initialSpeed);
+          
+          // Kliknij przycisk prędkości
+          await speedButton.click();
+          
+          // Sprawdź czy prędkość się zmieniła
+          await page.waitForTimeout(500);
+          const newSpeed = await speedButton.textContent();
+          console.log('New speed:', newSpeed);
+          
+          expect(newSpeed).not.toBe(initialSpeed);
+        } else {
+          console.log('Speed control not found');
+        }
+      } catch (e) {
+        console.log('AudioPlayer not found, skipping speed control test');
+      }
+    } else {
+      console.log('No episodes found, skipping speed control test');
+    }
+  });
+
+  test('powinien wyświetlić pasek postępu', async ({ page }) => {
+    // Znajdź odcinki (elastyczne selektory)
+    const episodes = page.locator('[data-testid="episode-item"], .episode-item, .episode-card, [data-testid="episode-card"]');
+    const episodeCount = await episodes.count();
+    
+    if (episodeCount > 0) {
+      // Otwórz pierwszy odcinek
+      await episodes.first().click();
+      
+      // Poczekaj na załadowanie AudioPlayer
+      try {
+        await expect(page.locator('[data-testid="audio-player"], .audio-player, .player, [data-testid="player"]')).toBeVisible({ timeout: 10000 });
+        
+        // Sprawdź czy jest pasek postępu (slider lub input range)
+        const progressBar = page.locator('input[type="range"], [data-testid="progress-bar"], .progress-bar, [role="slider"]');
+        if (await progressBar.isVisible()) {
+          console.log('Progress bar is visible');
+          
+          // Sprawdź czy można przesunąć pasek postępu
+          const progressValue = await progressBar.getAttribute('value');
+          console.log('Current progress value:', progressValue);
+          
+          // Spróbuj przesunąć pasek (symulacja przewijania)
+          await progressBar.click();
+          await page.waitForTimeout(300);
+        } else {
+          console.log('Progress bar not found');
+        }
+      } catch (e) {
+        console.log('AudioPlayer not found, skipping progress bar test');
+      }
+    } else {
+      console.log('No episodes found, skipping progress bar test');
+    }
+  });
 }); 

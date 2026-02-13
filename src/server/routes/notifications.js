@@ -16,6 +16,8 @@ router.get('/', authenticateToken, async (req, res) => {
         an.id,
         an.title,
         an.message,
+        an.notification_type,
+        an.metadata,
         an.created_at,
         an.updated_at,
         COALESCE(ns.views_count, 0) as views_count,
@@ -25,14 +27,21 @@ router.get('/', authenticateToken, async (req, res) => {
         ns.last_viewed_at
       FROM admin_notifications an
       LEFT JOIN notification_stats ns ON an.id = ns.notification_id AND ns.user_id = ?
-      WHERE an.is_active = 1
+      WHERE an.is_active = 1 AND (ns.dismissed IS NULL OR ns.dismissed = 0)
       ORDER BY an.created_at DESC
     `, [userId]);
 
-    // Filtruj powiadomienia - pokazuj tylko te, które użytkownik nie odrzucił
-    const activeNotifications = notifications.filter(n => !n.dismissed);
+    // Process each notification to parse metadata and ensure proper format
+    const processedNotifications = notifications.map(notification => ({
+      ...notification,
+      metadata: notification.metadata ? (
+        typeof notification.metadata === 'string' ? 
+          JSON.parse(notification.metadata) : 
+          notification.metadata
+      ) : {}
+    }));
 
-    res.json(activeNotifications);
+    res.json(processedNotifications);
   } catch (error) {
     console.error('Get notifications error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
@@ -151,6 +160,8 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
         an.id,
         an.title,
         an.message,
+        an.notification_type,
+        an.metadata,
         an.is_active,
         an.created_at,
         an.updated_at,
@@ -165,7 +176,17 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
       ORDER BY an.created_at DESC
     `);
 
-    res.json(notifications);
+    // Process each notification to parse metadata and ensure proper format
+    const processedNotifications = notifications.map(notification => ({
+      ...notification,
+      metadata: notification.metadata ? (
+        typeof notification.metadata === 'string' ? 
+          JSON.parse(notification.metadata) : 
+          notification.metadata
+      ) : {}
+    }));
+
+    res.json(processedNotifications);
   } catch (error) {
     console.error('Get admin notifications error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
@@ -176,23 +197,39 @@ router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
 router.post('/admin', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const { title, message } = req.body;
+    const { title, message, notification_type = 'text', metadata = '{}' } = req.body;
     const createdBy = req.user.id;
 
     if (!title || !message) {
       return res.status(400).json({ error: 'Tytuł i treść są wymagane' });
     }
 
+    // Walidacja typu powiadomienia
+    const validTypes = ['text', 'episode', 'series'];
+    if (!validTypes.includes(notification_type)) {
+      return res.status(400).json({ error: 'Nieprawidłowy typ powiadomienia' });
+    }
+
+    // Walidacja metadanych
+    let parsedMetadata;
+    try {
+      parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    } catch (error) {
+      return res.status(400).json({ error: 'Nieprawidłowy format metadanych JSON' });
+    }
+
     const result = await db.run(`
-      INSERT INTO admin_notifications (title, message, created_by)
-      VALUES (?, ?, ?)
-    `, [title, message, createdBy]);
+      INSERT INTO admin_notifications (title, message, notification_type, metadata, created_by)
+      VALUES (?, ?, ?, ?, ?)
+    `, [title, message, notification_type, JSON.stringify(parsedMetadata), createdBy]);
 
     const newNotification = await db.get(`
       SELECT 
         an.id,
         an.title,
         an.message,
+        an.notification_type,
+        an.metadata,
         an.is_active,
         an.created_at,
         an.updated_at,
@@ -202,7 +239,17 @@ router.post('/admin', authenticateToken, requireAdmin, async (req, res) => {
       WHERE an.id = ?
     `, [result.lastID]);
 
-    res.status(201).json(newNotification);
+    // Process metadata before sending response
+    const processedNotification = {
+      ...newNotification,
+      metadata: newNotification.metadata ? (
+        typeof newNotification.metadata === 'string' ? 
+          JSON.parse(newNotification.metadata) : 
+          newNotification.metadata
+      ) : {}
+    };
+
+    res.status(201).json(processedNotification);
   } catch (error) {
     console.error('Create notification error:', error);
     res.status(500).json({ error: 'Błąd serwera' });
@@ -214,25 +261,60 @@ router.put('/admin/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const db = await getDb();
     const notificationId = parseInt(req.params.id);
-    const { title, message, is_active } = req.body;
+    const { title, message, is_active, notification_type, metadata } = req.body;
 
     if (!title || !message) {
       return res.status(400).json({ error: 'Tytuł i treść są wymagane' });
     }
 
+    // Walidacja typu powiadomienia (jeśli podany)
+    if (notification_type) {
+      const validTypes = ['text', 'episode', 'series'];
+      if (!validTypes.includes(notification_type)) {
+        return res.status(400).json({ error: 'Nieprawidłowy typ powiadomienia' });
+      }
+    }
+
+    // Walidacja metadanych (jeśli podane)
+    let parsedMetadata;
+    if (metadata !== undefined) {
+      try {
+        parsedMetadata = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+      } catch (error) {
+        return res.status(400).json({ error: 'Nieprawidłowy format metadanych JSON' });
+      }
+    }
+
     const now = new Date().toISOString();
 
-    await db.run(`
+    // Przygotuj zapytanie SQL w zależności od przekazanych parametrów
+    let updateQuery = `
       UPDATE admin_notifications 
-      SET title = ?, message = ?, is_active = ?, updated_at = ?
-      WHERE id = ?
-    `, [title, message, is_active ? 1 : 0, now, notificationId]);
+      SET title = ?, message = ?, is_active = ?, updated_at = ?`;
+    let updateParams = [title, message, is_active ? 1 : 0, now];
+
+    if (notification_type) {
+      updateQuery += `, notification_type = ?`;
+      updateParams.push(notification_type);
+    }
+
+    if (metadata !== undefined) {
+      updateQuery += `, metadata = ?`;
+      updateParams.push(JSON.stringify(parsedMetadata));
+    }
+
+    updateQuery += ` WHERE id = ?`;
+    updateParams.push(notificationId);
+
+    await db.run(updateQuery, updateParams);
 
     const updatedNotification = await db.get(`
       SELECT 
         an.id,
         an.title,
         an.message,
+        an.notification_type,
+        an.metadata,
         an.is_active,
         an.created_at,
         an.updated_at,
@@ -246,7 +328,17 @@ router.put('/admin/:id', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(404).json({ error: 'Powiadomienie nie znalezione' });
     }
 
-    res.json(updatedNotification);
+    // Process metadata before sending response
+    const processedNotification = {
+      ...updatedNotification,
+      metadata: updatedNotification.metadata ? (
+        typeof updatedNotification.metadata === 'string' ? 
+          JSON.parse(updatedNotification.metadata) : 
+          updatedNotification.metadata
+      ) : {}
+    };
+
+    res.json(processedNotification);
   } catch (error) {
     console.error('Update notification error:', error);
     res.status(500).json({ error: 'Błąd serwera' });

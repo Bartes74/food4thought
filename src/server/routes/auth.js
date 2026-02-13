@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../database.js';
@@ -15,6 +16,15 @@ import {
 } from '../utils/emailVerification.js';
 
 const router = express.Router();
+
+const getJwtSecretOrRespond = (res) => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    res.status(500).json({ error: 'Brak konfiguracji JWT_SECRET na serwerze' });
+    return null;
+  }
+  return secret;
+};
 
 // Logowanie
 router.post('/login', async (req, res) => {
@@ -45,9 +55,12 @@ router.post('/login', async (req, res) => {
       });
     }
     
+    const jwtSecret = getJwtSecretOrRespond(res);
+    if (!jwtSecret) return;
+
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      jwtSecret,
       { expiresIn: '30d' }
     );
     
@@ -90,6 +103,9 @@ router.post('/register', async (req, res) => {
   }
   
   try {
+    const jwtSecret = getJwtSecretOrRespond(res);
+    if (!jwtSecret) return;
+
     const db = await getDb();
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -109,15 +125,20 @@ router.post('/register', async (req, res) => {
     const verificationToken = generateVerificationToken(result.lastID, email);
     await saveVerificationToken(result.lastID, verificationToken);
     
-    // Wysłanie emaila weryfikacyjnego
+    // Wysłanie emaila weryfikacyjnego - nie przerwaj rejestracji jeśli się nie uda
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(email, verificationUrl);
+    
+    try {
+      await sendVerificationEmail(email, verificationUrl);
+    } catch (emailError) {
+      console.error('Email sending failed during registration, but continuing:', emailError);
+      // Nie rzucamy błędu - rejestracja powinna się udać nawet jeśli email się nie wyśle
+    }
     
     res.status(201).json({
       message: 'Konto zostało utworzone. Sprawdź swój email, aby potwierdzić adres.',
-      user: { id: result.lastID, email, role: 'user', email_verified: false },
-      verificationToken: verificationToken // Dodajemy token do odpowiedzi
+      user: { id: result.lastID, email, role: 'user', email_verified: false }
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -168,15 +189,15 @@ router.post('/resend-verification', async (req, res) => {
   }
   
   try {
+    const genericResponse = {
+      message: 'Jeśli konto istnieje i nie jest zweryfikowane, wysłaliśmy email weryfikacyjny.'
+    };
+
     const db = await getDb();
     const user = await db.get('SELECT id, email, email_verified FROM users WHERE email = ?', [email]);
     
-    if (!user) {
-      return res.status(404).json({ error: 'Użytkownik nie znaleziony' });
-    }
-    
-    if (user.email_verified) {
-      return res.status(400).json({ error: 'Email jest już zweryfikowany' });
+    if (!user || user.email_verified) {
+      return res.json(genericResponse);
     }
     
     // Generowanie nowego tokenu
@@ -188,10 +209,98 @@ router.post('/resend-verification', async (req, res) => {
     const verificationUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
     await sendVerificationEmail(email, verificationUrl);
     
-    res.json({ message: 'Email weryfikacyjny został ponownie wysłany' });
+    return res.json(genericResponse);
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Błąd serwera podczas wysyłania emaila' });
+  }
+});
+
+// Żądanie resetu hasła
+router.post('/reset-password-request', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email jest wymagany' });
+  }
+
+  try {
+    const db = await getDb();
+    const user = await db.get('SELECT id, email FROM users WHERE email = ?', [email]);
+
+    // Odpowiedź zawsze taka sama (bez ujawniania czy konto istnieje)
+    const genericResponse = {
+      message: 'Jeśli konto istnieje, wysłaliśmy instrukcję resetu hasła.'
+    };
+
+    if (!user) {
+      return res.json(genericResponse);
+    }
+
+    const token = randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+
+    await db.run('DELETE FROM password_resets WHERE user_id = ?', [user.id]);
+    await db.run(
+      'INSERT INTO password_resets (token, user_id, expires_at, used) VALUES (?, ?, ?, 0)',
+      [token, user.id, expiresAt]
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+      const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+      console.log('🔐 Password reset link (dev):', `${baseUrl}/reset-password?token=${token}`);
+    }
+
+    return res.json(genericResponse);
+  } catch (error) {
+    console.error('Reset password request error:', error);
+    return res.status(500).json({ error: 'Błąd serwera podczas resetu hasła' });
+  }
+});
+
+// Zakończenie resetu hasła
+router.post('/reset-password', async (req, res) => {
+  const { token, password, confirmPassword } = req.body;
+
+  if (!token || !password || !confirmPassword) {
+    return res.status(400).json({ error: 'Token, hasło i potwierdzenie hasła są wymagane' });
+  }
+
+  if (password !== confirmPassword) {
+    return res.status(400).json({ error: 'Hasła nie są identyczne' });
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      error: 'Hasło nie spełnia wymagań bezpieczeństwa',
+      details: passwordValidation.errors
+    });
+  }
+
+  try {
+    const db = await getDb();
+    const resetEntry = await db.get(
+      'SELECT token, user_id FROM password_resets WHERE token = ? AND used = 0 AND expires_at > ?',
+      [token, new Date().toISOString()]
+    );
+
+    if (!resetEntry) {
+      return res.status(400).json({ error: 'Token resetu hasła jest nieprawidłowy lub wygasł' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [
+      hashedPassword,
+      resetEntry.user_id
+    ]);
+    await db.run('UPDATE password_resets SET used = 1 WHERE token = ?', [token]);
+
+    res.json({ message: 'Hasło zostało zaktualizowane' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Błąd serwera podczas resetu hasła' });
   }
 });
 
@@ -251,6 +360,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // Odświeżanie tokenu
 router.post('/refresh', authenticateToken, async (req, res) => {
   try {
+    const jwtSecret = getJwtSecretOrRespond(res);
+    if (!jwtSecret) return;
+
     const db = await getDb();
     const user = await db.get(
       'SELECT id, email, role FROM users WHERE id = ?',
@@ -264,7 +376,7 @@ router.post('/refresh', authenticateToken, async (req, res) => {
     // Generuj nowy token
     const newToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'your-secret-key',
+      jwtSecret,
       { expiresIn: '30d' }
     );
     

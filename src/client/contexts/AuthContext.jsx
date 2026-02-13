@@ -79,12 +79,11 @@ export const AuthProvider = ({ children }) => {
         confirmPassword 
       })
       
-      // Zwracamy dane użytkownika, informację o sukcesie i token weryfikacyjny
+      // Zwracamy dane użytkownika i informację o sukcesie
       return { 
         success: true, 
         user: response.data.user,
-        message: response.data.message,
-        verificationToken: response.data.verificationToken
+        message: response.data.message
       }
     } catch (error) {
       return { 

@@ -11,6 +11,7 @@ const NotificationManagement = () => {
   const { isDarkMode } = useTheme();
   
   const [notifications, setNotifications] = useState([]);
+  const [episodes, setEpisodes] = useState({ new: [], inProgress: [], completed: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -18,7 +19,9 @@ const NotificationManagement = () => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    message: ''
+    message: '',
+    notification_type: 'text',
+    metadata: {}
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,21 +32,44 @@ const NotificationManagement = () => {
 
   useEffect(() => {
     if (user && (user.role === 'admin' || user.role === 'super_admin')) {
-      loadNotifications();
+      loadData();
     }
   }, [user]);
 
-  const loadNotifications = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
+      const [notificationsRes, episodesRes] = await Promise.all([
+        axios.get('/api/notifications/admin'),
+        axios.get('/api/episodes/my')
+      ]);
+      setNotifications(notificationsRes.data);
+      setEpisodes(episodesRes.data);
+    } catch (error) {
+      console.error('Błąd ładowania danych:', error);
+      setError('Nie udało się załadować danych');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
       const response = await axios.get('/api/notifications/admin');
       setNotifications(response.data);
     } catch (error) {
       console.error('Błąd ładowania powiadomień:', error);
       setError('Nie udało się załadować powiadomień');
-    } finally {
-      setLoading(false);
     }
+  };
+
+  // Helper function to get all episodes in a flat array
+  const getAllEpisodes = () => {
+    return [
+      ...(episodes.new || []),
+      ...(episodes.inProgress || []),
+      ...(episodes.completed || [])
+    ].sort((a, b) => new Date(b.date_added) - new Date(a.date_added));
   };
 
   const handleSubmit = async (e) => {
@@ -60,11 +86,16 @@ const NotificationManagement = () => {
       await axios.post('/api/notifications/admin', formData);
       
       // Resetuj formularz
-      setFormData({ title: '', message: '' });
+      setFormData({ 
+        title: '', 
+        message: '', 
+        notification_type: 'text', 
+        metadata: {} 
+      });
       setShowForm(false);
       
       // Przeładuj listę
-      await loadNotifications();
+      await loadData();
     } catch (error) {
       console.error('Błąd tworzenia powiadomienia:', error);
       setError('Nie udało się utworzyć powiadomienia');
@@ -82,7 +113,7 @@ const NotificationManagement = () => {
         is_active: !currentStatus
       });
       
-      await loadNotifications();
+      await loadData();
     } catch (error) {
       console.error('Błąd aktualizacji powiadomienia:', error);
       setError('Nie udało się zaktualizować powiadomienia');
@@ -96,7 +127,7 @@ const NotificationManagement = () => {
 
     try {
       await axios.delete(`/api/notifications/admin/${notificationId}`);
-      await loadNotifications();
+      await loadData();
     } catch (error) {
       console.error('Błąd usuwania powiadomienia:', error);
       setError('Nie udało się usunąć powiadomienia');
@@ -198,6 +229,184 @@ const NotificationManagement = () => {
                   required
                 />
               </div>
+
+              {/* Typ powiadomienia */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-light-text dark:text-gray-300 mb-2">
+                  Typ powiadomienia
+                </label>
+                <select
+                  value={formData.notification_type}
+                  onChange={(e) => {
+                    setFormData({ 
+                      ...formData, 
+                      notification_type: e.target.value,
+                      metadata: {} // Reset metadata when changing type
+                    });
+                  }}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                    isDarkMode 
+                      ? 'bg-dark-bg border-dark-border text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                >
+                  <option value="text">📝 Tekstowe</option>
+                  <option value="episode">🎧 Ważny odcinek</option>
+                  <option value="series">📺 Nowa seria</option>
+                </select>
+              </div>
+
+              {/* Metadata fields based on notification type */}
+              {formData.notification_type === 'episode' && (
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-light-text dark:text-white mb-3">
+                    Wybierz odcinek
+                  </h4>
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-light-text dark:text-gray-300 mb-1">
+                      Odcinek
+                    </label>
+                    <select
+                      value={formData.metadata.episodeId || ''}
+                      onChange={(e) => {
+                        const episodeId = parseInt(e.target.value) || null;
+                        const selectedEpisode = getAllEpisodes().find(ep => ep.id === episodeId);
+                        setFormData({ 
+                          ...formData, 
+                          metadata: { 
+                            ...formData.metadata, 
+                            episodeId: episodeId,
+                            autoPlay: true, // Always auto-play for episode notifications
+                            episodeTitle: selectedEpisode?.title || ''
+                          }
+                        });
+                      }}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                        isDarkMode 
+                          ? 'bg-dark-bg border-dark-border text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    >
+                      <option value="">Wybierz odcinek...</option>
+                      {getAllEpisodes().length > 0 && (
+                        <>
+                          {episodes.new?.length > 0 && (
+                            <optgroup label="🆕 Nowe odcinki">
+                              {episodes.new.map(episode => (
+                                <option key={episode.id} value={episode.id}>
+                                  {episode.title} ({episode.series_name})
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {episodes.inProgress?.length > 0 && (
+                            <optgroup label="▶️ W trakcie">
+                              {episodes.inProgress.map(episode => (
+                                <option key={episode.id} value={episode.id}>
+                                  {episode.title} ({episode.series_name})
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {episodes.completed?.length > 0 && (
+                            <optgroup label="✅ Ukończone">
+                              {episodes.completed.map(episode => (
+                                <option key={episode.id} value={episode.id}>
+                                  {episode.title} ({episode.series_name})
+                                </option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      )}
+                    </select>
+                    {getAllEpisodes().length === 0 && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Brak dostępnych odcinków
+                      </p>
+                    )}
+                  </div>
+                  <div className="bg-blue-100 dark:bg-blue-800/30 p-3 rounded">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                        <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                        Automatyczne odtwarzanie włączone
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      Po kliknięciu powiadomienia odcinek od razu zacznie się odtwarzać
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {formData.notification_type === 'series' && (
+                <div className="mb-4 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-light-text dark:text-white mb-3">
+                    Ustawienia serii
+                  </h4>
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-light-text dark:text-gray-300 mb-1">
+                      ID serii
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.metadata.seriesId || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        metadata: { ...formData.metadata, seriesId: parseInt(e.target.value) || null }
+                      })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                        isDarkMode 
+                          ? 'bg-dark-bg border-dark-border text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                      placeholder="Wprowadź ID serii"
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-light-text dark:text-gray-300 mb-1">
+                      URL obrazka serii
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.metadata.imageUrl || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        metadata: { ...formData.metadata, imageUrl: e.target.value }
+                      })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                        isDarkMode 
+                          ? 'bg-dark-bg border-dark-border text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                      placeholder="Wprowadź URL obrazka serii"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-light-text dark:text-gray-300 mb-1">
+                      Krótki opis serii
+                    </label>
+                    <textarea
+                      value={formData.metadata.description || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        metadata: { ...formData.metadata, description: e.target.value }
+                      })}
+                      rows={2}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
+                        isDarkMode 
+                          ? 'bg-dark-bg border-dark-border text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                      placeholder="Wprowadź krótki opis serii"
+                    />
+                  </div>
+                </div>
+              )}
             
                           <div className="flex gap-3">
                 <button
@@ -248,6 +457,20 @@ const NotificationManagement = () => {
                       <h3 className="font-semibold text-light-text dark:text-white">
                         {notification.title}
                       </h3>
+                      
+                      {/* Typ powiadomienia */}
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        notification.notification_type === 'episode' 
+                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          : notification.notification_type === 'series'
+                          ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {notification.notification_type === 'episode' && '🎧 Odcinek'}
+                        {notification.notification_type === 'series' && '📺 Seria'}
+                        {notification.notification_type === 'text' && '📝 Tekst'}
+                      </span>
+                      
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         notification.is_active 
                           ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
@@ -260,6 +483,35 @@ const NotificationManagement = () => {
                     <p className="text-light-textSecondary dark:text-gray-400 mt-1">
                       {notification.message}
                     </p>
+                    
+                    {/* Metadata display */}
+                    {notification.notification_type === 'episode' && notification.metadata && (
+                      <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-800 dark:text-blue-200">
+                            🎧 Odcinek ID: {notification.metadata.episodeId || 'Nie określono'}
+                          </span>
+                          {notification.metadata.autoPlay && (
+                            <span className="text-blue-600 dark:text-blue-400">
+                              ▶️ Auto-odtwarzanie
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {notification.notification_type === 'series' && notification.metadata && (
+                      <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded text-sm">
+                        <div className="text-purple-800 dark:text-purple-200">
+                          📺 Seria ID: {notification.metadata.seriesId || 'Nie określono'}
+                        </div>
+                        {notification.metadata.description && (
+                          <div className="text-purple-600 dark:text-purple-400 mt-1">
+                            {notification.metadata.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     
                     <div className="flex items-center gap-3 mt-2">
                       <span className="text-sm text-light-textSecondary dark:text-gray-400">

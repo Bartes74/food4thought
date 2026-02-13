@@ -1,6 +1,8 @@
 import React from 'react';
 
 const PasswordStrengthIndicator = ({ password }) => {
+  const hasSpecial = (pwd) => /[^a-zA-Z0-9]/.test(pwd || '');
+
   const calculateStrength = (password) => {
     if (!password) return 0;
     
@@ -15,7 +17,7 @@ const PasswordStrengthIndicator = ({ password }) => {
     if (/[a-z]/.test(password)) score += 10;
     if (/[A-Z]/.test(password)) score += 10;
     if (/\d/.test(password)) score += 10;
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 10;
+    if (hasSpecial(password)) score += 10;
     
     // Dodatkowe punkty za różnorodność
     const uniqueChars = new Set(password).size;
@@ -60,8 +62,8 @@ const PasswordStrengthIndicator = ({ password }) => {
       },
       { 
         label: 'Znak specjalny', 
-        met: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
-        icon: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password) ? '✓' : '✗'
+        met: hasSpecial(password),
+        icon: hasSpecial(password) ? '✓' : '✗'
       }
     ];
     

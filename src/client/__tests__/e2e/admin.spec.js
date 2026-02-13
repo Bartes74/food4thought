@@ -254,4 +254,180 @@ test.describe('Panel administratora', () => {
       console.log('Admin link not found, skipping user activity test');
     }
   });
-}); 
+
+  test('powinien otworzyć modal dodawania odcinka', async ({ page }) => {
+    // Znajdź link do panelu admin
+    const adminLink = page.locator('[data-testid="admin-link"], a[href*="admin"], button[title*="admin"], a:has-text("Admin")');
+    
+    if (await adminLink.isVisible()) {
+      await adminLink.click();
+      
+      // Przejdź do zarządzania odcinkami
+      const episodesLink = page.locator('a:has-text("Zarządzanie odcinkami"), a:has-text("Episodes management"), a[href*="episodes"]');
+      if (await episodesLink.isVisible()) {
+        await episodesLink.click();
+        await expect(page).toHaveURL(/\/episodes/);
+        
+        // Znajdź przycisk dodawania odcinka
+        const addButton = page.locator('button:has-text("+ Dodaj odcinek"), button:has-text("Add episode")');
+        if (await addButton.isVisible()) {
+          await addButton.click();
+          
+          // Sprawdź czy modal się otworzył
+          const addModal = page.locator('h2:has-text("Dodaj nowy odcinek"), h2:has-text("Add new episode")');
+          await expect(addModal).toBeVisible();
+          
+          // Sprawdź czy formularz ma wszystkie pola
+          await expect(page.locator('input[placeholder*="Tytuł"], input[placeholder*="Title"]')).toBeVisible();
+          await expect(page.locator('select:has(option:has-text("Wybierz serię"))')).toBeVisible();
+          await expect(page.locator('select:has(option:has-text("Polski"))')).toBeVisible();
+          await expect(page.locator('input[type="file"]')).toBeVisible();
+          await expect(page.locator('textarea[placeholder*="Informacje dodatkowe"]')).toBeVisible();
+          await expect(page.locator('textarea[placeholder*="Linki i timestampy"]')).toBeVisible();
+        } else {
+          console.log('Add episode button not found');
+        }
+      } else {
+        console.log('Episodes management link not found');
+      }
+    } else {
+      console.log('Admin link not found, skipping add episode modal test');
+    }
+  });
+
+  test('powinien otworzyć modal edycji odcinka z pełną funkcjonalnością', async ({ page }) => {
+    // Znajdź link do panelu admin
+    const adminLink = page.locator('[data-testid="admin-link"], a[href*="admin"], button[title*="admin"], a:has-text("Admin")');
+    
+    if (await adminLink.isVisible()) {
+      await adminLink.click();
+      
+      // Przejdź do zarządzania odcinkami
+      const episodesLink = page.locator('a:has-text("Zarządzanie odcinkami"), a:has-text("Episodes management"), a[href*="episodes"]');
+      if (await episodesLink.isVisible()) {
+        await episodesLink.click();
+        await expect(page).toHaveURL(/\/episodes/);
+        
+        // Poczekaj na załadowanie listy odcinków
+        await page.waitForSelector('[data-testid="episodes-management"]', { timeout: 10000 });
+        
+        // Znajdź pierwszy przycisk edycji (powinien być tylko jeden - comprehensive edit)
+        const editButton = page.locator('button[title="Edytuj odcinek"], button:has(svg[class*="edit"])').first();
+        if (await editButton.isVisible()) {
+          await editButton.click();
+          
+          // Sprawdź czy modal edycji się otworzył
+          const editModal = page.locator('h2:has-text("Edytuj odcinek"), h2:has-text("Edit episode")');
+          await expect(editModal).toBeVisible();
+          
+          // Sprawdź czy formularz edycji ma wszystkie pola (jak formularz dodawania)
+          await expect(page.locator('input[value]:not([value=""])')).toBeVisible(); // Tytuł powinien być wypełniony
+          await expect(page.locator('select:has(option[selected])')).toBeVisible(); // Seria powinna być wybrana
+          await expect(page.locator('input[type="file"]')).toBeVisible(); // Możliwość upload nowego audio
+          await expect(page.locator('textarea')).toBeVisible(); // Obszary tekstowe
+          
+          // Sprawdź czy są przyciski akcji
+          await expect(page.locator('button:has-text("Anuluj"), button:has-text("Cancel")')).toBeVisible();
+          await expect(page.locator('button:has-text("Zapisz"), button:has-text("Save")')).toBeVisible();
+        } else {
+          console.log('Edit button not found - checking if episodes list loaded');
+          const episodesList = page.locator('[data-testid="episodes-management"]');
+          if (await episodesList.isVisible()) {
+            console.log('Episodes management page loaded but no episodes to edit');
+          }
+        }
+      } else {
+        console.log('Episodes management link not found');
+      }
+    } else {
+      console.log('Admin link not found, skipping edit episode modal test');
+    }
+  });
+
+  test('powinien wyświetlić tylko jeden przycisk edycji na odcinek', async ({ page }) => {
+    // Znajdź link do panelu admin
+    const adminLink = page.locator('[data-testid="admin-link"], a[href*="admin"], button[title*="admin"], a:has-text("Admin")');
+    
+    if (await adminLink.isVisible()) {
+      await adminLink.click();
+      
+      // Przejdź do zarządzania odcinkami
+      const episodesLink = page.locator('a:has-text("Zarządzanie odcinkami"), a:has-text("Episodes management"), a[href*="episodes"]');
+      if (await episodesLink.isVisible()) {
+        await episodesLink.click();
+        await expect(page).toHaveURL(/\/episodes/);
+        
+        // Poczekaj na załadowanie listy odcinków
+        await page.waitForSelector('[data-testid="episodes-management"]', { timeout: 10000 });
+        
+        // Sprawdź pierwszy wiersz odcinka (jeśli istnieje)
+        const firstEpisodeRow = page.locator('.rounded-lg.shadow-lg').first();
+        if (await firstEpisodeRow.isVisible()) {
+          // Policz przyciski edycji w pierwszym wierszu
+          const editButtons = firstEpisodeRow.locator('button[title="Edytuj odcinek"], button:has(svg[class*="edit"])');
+          const editButtonsCount = await editButtons.count();
+          
+          // Powinien być tylko jeden przycisk edycji
+          expect(editButtonsCount).toBeLessThanOrEqual(1);
+          
+          if (editButtonsCount === 1) {
+            console.log('Correct: Only one edit button per episode');
+          } else {
+            console.log('No edit buttons found in episode row');
+          }
+        } else {
+          console.log('No episodes found in the list');
+        }
+      } else {
+        console.log('Episodes management link not found');
+      }
+    } else {
+      console.log('Admin link not found, skipping edit button count test');
+    }
+  });
+
+  test('powinien umożliwić upload pliku audio w edycji odcinka', async ({ page }) => {
+    // Znajdź link do panelu admin
+    const adminLink = page.locator('[data-testid="admin-link"], a[href*="admin"], button[title*="admin"], a:has-text("Admin")');
+    
+    if (await adminLink.isVisible()) {
+      await adminLink.click();
+      
+      // Przejdź do zarządzania odcinkami
+      const episodesLink = page.locator('a:has-text("Zarządzanie odcinkami"), a:has-text("Episodes management"), a[href*="episodes"]');
+      if (await episodesLink.isVisible()) {
+        await episodesLink.click();
+        await expect(page).toHaveURL(/\/episodes/);
+        
+        // Poczekaj na załadowanie listy odcinków
+        await page.waitForSelector('[data-testid="episodes-management"]', { timeout: 10000 });
+        
+        // Znajdź pierwszy przycisk edycji
+        const editButton = page.locator('button[title="Edytuj odcinek"], button:has(svg[class*="edit"])').first();
+        if (await editButton.isVisible()) {
+          await editButton.click();
+          
+          // Sprawdź czy modal edycji się otworzył
+          const editModal = page.locator('h2:has-text("Edytuj odcinek"), h2:has-text("Edit episode")');
+          await expect(editModal).toBeVisible();
+          
+          // Sprawdź czy pole upload audio jest obecne i funkcjonalne
+          const audioUpload = page.locator('input[type="file"][accept*="audio"]');
+          await expect(audioUpload).toBeVisible();
+          
+          // Sprawdź czy jest informacja o możliwości upload audio
+          const audioInfo = page.locator('text=/audio|plik|file/i');
+          if (await audioInfo.isVisible()) {
+            console.log('Audio upload functionality is present in edit modal');
+          }
+        } else {
+          console.log('Edit button not found');
+        }
+      } else {
+        console.log('Episodes management link not found');
+      }
+    } else {
+      console.log('Admin link not found, skipping audio upload test');
+    }
+  });
+});

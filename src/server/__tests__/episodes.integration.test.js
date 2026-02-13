@@ -192,6 +192,160 @@ describe('Episodes Integration Tests', () => {
     });
   });
 
+  describe('POST /api/episodes', () => {
+    it('should create episode without audio file (admin only)', async () => {
+      const response = await request(app)
+        .post('/api/episodes')
+        .set('Authorization', 'Bearer admin-token')
+        .field('title', 'Test Episode')
+        .field('series_id', '1')
+        .field('language', 'polski')
+        .field('additional_info', 'Test description');
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('episode');
+      expect(response.body.episode).toHaveProperty('title', 'Test Episode');
+    });
+
+    it('should create episode with audio file (admin only)', async () => {
+      const response = await request(app)
+        .post('/api/episodes')
+        .set('Authorization', 'Bearer admin-token')
+        .field('title', 'Test Episode with Audio')
+        .field('series_id', '1')
+        .field('language', 'polski')
+        .attach('audio', Buffer.from('fake audio content'), 'test.mp3');
+
+      expect(response.status).toBe(201);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('hasAudioFile', true);
+    });
+
+    it('should return 401 for non-admin user', async () => {
+      const response = await request(app)
+        .post('/api/episodes')
+        .set('Authorization', 'Bearer user-token')
+        .field('title', 'Test Episode')
+        .field('series_id', '1');
+
+      expect(response.status).toBe(403);
+    });
+
+    it('should validate required fields', async () => {
+      const response = await request(app)
+        .post('/api/episodes')
+        .set('Authorization', 'Bearer admin-token')
+        .field('series_id', '1');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error');
+    });
+  });
+
+  describe('POST /api/episodes/:id/upload-audio', () => {
+    it('should upload audio file to existing episode (admin only)', async () => {
+      const response = await request(app)
+        .post('/api/episodes/1/upload-audio')
+        .set('Authorization', 'Bearer admin-token')
+        .attach('audio', Buffer.from('fake audio content'), 'test.mp3');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('episode');
+    });
+
+    it('should return 400 when no audio file provided', async () => {
+      const response = await request(app)
+        .post('/api/episodes/1/upload-audio')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toHaveProperty('error');
+    });
+
+    it('should return 404 for non-existent episode', async () => {
+      const response = await request(app)
+        .post('/api/episodes/99999/upload-audio')
+        .set('Authorization', 'Bearer admin-token')
+        .attach('audio', Buffer.from('fake audio content'), 'test.mp3');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 401 for non-admin user', async () => {
+      const response = await request(app)
+        .post('/api/episodes/1/upload-audio')
+        .set('Authorization', 'Bearer user-token')
+        .attach('audio', Buffer.from('fake audio content'), 'test.mp3');
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('PUT /api/episodes/:id', () => {
+    it('should update episode metadata (admin only)', async () => {
+      const response = await request(app)
+        .put('/api/episodes/1')
+        .set('Authorization', 'Bearer admin-token')
+        .send({
+          title: 'Updated Episode Title',
+          language: 'angielski',
+          additional_info: 'Updated description',
+          topics_content: '[00:00] # New Topic\n- https://example.com'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+      expect(response.body).toHaveProperty('episode');
+    });
+
+    it('should return 404 for non-existent episode', async () => {
+      const response = await request(app)
+        .put('/api/episodes/99999')
+        .set('Authorization', 'Bearer admin-token')
+        .send({ title: 'Updated Title' });
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 401 for non-admin user', async () => {
+      const response = await request(app)
+        .put('/api/episodes/1')
+        .set('Authorization', 'Bearer user-token')
+        .send({ title: 'Updated Title' });
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('DELETE /api/episodes/:id', () => {
+    it('should delete episode (admin only)', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/1')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty('message');
+    });
+
+    it('should return 404 for non-existent episode', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/99999')
+        .set('Authorization', 'Bearer admin-token');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 401 for non-admin user', async () => {
+      const response = await request(app)
+        .delete('/api/episodes/1')
+        .set('Authorization', 'Bearer user-token');
+
+      expect(response.status).toBe(403);
+    });
+  });
+
   describe('POST /api/episodes/:id/rating', () => {
     it('should rate episode successfully', async () => {
       const response = await request(app)

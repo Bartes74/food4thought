@@ -16,13 +16,14 @@ const LoginPage = () => {
   const [mode, setMode] = useState('login') // 'login', 'register', 'reset', 'verification'
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [verificationToken, setVerificationToken] = useState('')
   const [registeredEmail, setRegisteredEmail] = useState('')
   
   const navigate = useNavigate()
   const { login, register } = useAuth()
   const { t } = useLanguage()
   const { isDarkMode } = useTheme()
+  const chromeClass = isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
+  const titleClass = isDarkMode ? 'text-slate-100' : 'text-slate-800'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -65,11 +66,10 @@ const LoginPage = () => {
 
       const result = await register(email, password, confirmPassword)
       if (result.success) {
-        // Po rejestracji pokazujemy link aktywacyjny
-        setVerificationToken(result.verificationToken)
+        // Po rejestracji przejdź do ekranu z instrukcją weryfikacji
         setRegisteredEmail(email)
         setMode('verification')
-        setError('')
+        setError(result.message || '')
       } else {
         if (result.error.includes('zarejestrowany') || result.error.includes('registered')) {
           setError(t('register.emailTaken'))
@@ -86,35 +86,28 @@ const LoginPage = () => {
     setLoading(false)
   }
 
-  const copyToClipboard = async (text) => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setError('Link skopiowany do schowka!')
-      setTimeout(() => setError(''), 2000)
-    } catch (err) {
-      setError('Nie udało się skopiować linku')
-      setTimeout(() => setError(''), 2000)
-    }
-  }
+  const handleResendVerification = async () => {
+    if (!registeredEmail) return
 
-  const handleVerification = async () => {
+    setLoading(true)
+    setError('')
     try {
-      const response = await fetch(`/api/auth/verify-email?token=${verificationToken}`)
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: registeredEmail })
+      })
       const data = await response.json()
-      
+
       if (response.ok) {
-        setError('Email został pomyślnie zweryfikowany! Możesz się teraz zalogować.')
-        setTimeout(() => {
-          setMode('login')
-          setError('')
-          setVerificationToken('')
-          setRegisteredEmail('')
-        }, 3000)
+        setError('Wysłaliśmy nowy email weryfikacyjny.')
       } else {
-        setError(data.error || 'Błąd weryfikacji email')
+        setError(data.error || 'Nie udało się ponownie wysłać emaila weryfikacyjnego.')
       }
     } catch (err) {
-      setError('Błąd podczas weryfikacji email')
+      setError('Błąd podczas wysyłania emaila weryfikacyjnego.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -150,9 +143,18 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex flex-col transition-colors duration-300">
       {/* Header - taki sam jak na stronie głównej */}
-      <header className="bg-primary border-b border-primary-dark p-4">
+      <header
+        className={`border-b p-4 transition-colors duration-300 ${chromeClass}`}
+      >
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-semibold text-white">Food 4 Thought</h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="/f4t_logo.png"
+              alt="Food 4 Thought logo"
+              className="w-[60px] h-[60px] object-contain"
+            />
+            <h1 className={`text-xl font-semibold ${titleClass}`}>Food 4 Thought</h1>
+          </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
             <LanguageSelector />
@@ -311,30 +313,25 @@ const LoginPage = () => {
                     Konto zostało utworzone!
                   </h3>
                   <p className="text-green-700 dark:text-green-300 text-sm">
-                    Kliknij poniższy link, aby zweryfikować swój adres email:
+                    Sprawdź skrzynkę mailową i kliknij link weryfikacyjny.
                   </p>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="p-3 bg-white dark:bg-gray-800 border border-green-200 dark:border-green-700 rounded-lg">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Link weryfikacyjny:</p>
-                    <p className="text-sm font-mono text-green-700 dark:text-green-300 break-all">
-                      {`${window.location.origin}/verify-email?token=${verificationToken}`}
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Adres:</p>
+                    <p className="text-sm font-medium text-green-700 dark:text-green-300 break-all">
+                      {registeredEmail || 'brak'}
                     </p>
                   </div>
                   
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => copyToClipboard(`${window.location.origin}/verify-email?token=${verificationToken}`)}
+                      onClick={handleResendVerification}
+                      disabled={loading}
                       className="flex-1 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
                     >
-                      📋 Kopiuj link
-                    </button>
-                    <button
-                      onClick={handleVerification}
-                      className="flex-1 py-2 px-3 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors"
-                    >
-                      ✅ Weryfikuj teraz
+                      {loading ? 'Wysyłanie...' : 'Wyślij ponownie email'}
                     </button>
                   </div>
                   
@@ -342,7 +339,6 @@ const LoginPage = () => {
                     <button
                       onClick={() => {
                         setMode('login')
-                        setVerificationToken('')
                         setRegisteredEmail('')
                         setError('')
                       }}
@@ -413,18 +409,18 @@ const LoginPage = () => {
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-6 p-4 bg-white dark:bg-dark-surface rounded-xl text-xs text-light-textSecondary dark:text-gray-500 text-center transition-colors duration-300 shadow-lg">
               <p>{t('login.testAccount')}</p>
-              <p className="font-mono mt-1">admin@food4thought.local / admin123</p>
+              <p className="font-mono mt-1">admin@food4thought.local / Admin123!</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Stopka z cieniem */}
-      <footer className="py-4 text-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]">
+      {/* Stopka */}
+      <footer className={`py-4 text-center border-t transition-colors duration-300 ${chromeClass}`}>
         <p className="text-sm text-light-textSecondary dark:text-gray-500">
           <span className="text-primary">●</span> Food4Thought coded by{' '}
           <a href="#" className="text-primary hover:text-primary-light transition-colors">
-            Innovation LAB
+            AI Team
           </a>{' '}
           <span className="text-primary">●</span> {new Date().getFullYear()} r.
         </p>

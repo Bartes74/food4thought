@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 
+const getJwtSecret = () => process.env.JWT_SECRET;
+
 // Middleware do weryfikacji tokenu
 export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -8,8 +10,13 @@ export const authenticateToken = (req, res, next) => {
   if (!token) {
     return res.status(401).json({ error: 'Brak tokenu autoryzacji' });
   }
-  
-  jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
+
+  const jwtSecret = getJwtSecret();
+  if (!jwtSecret) {
+    return res.status(500).json({ error: 'Brak konfiguracji JWT_SECRET na serwerze' });
+  }
+
+  jwt.verify(token, jwtSecret, (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Token nieprawidłowy lub wygasły' });
     }

@@ -53,9 +53,8 @@ const UserProfile = () => {
         audioLanguage: userPrefs.audioLanguage || 'polski',
         activeSeries: userPrefs.activeSeries || 'all',
         playbackSpeed: userPrefs.playbackSpeed || 1,
-        // autoplay i showCompletedEpisodes przeniesione poza profil
-        autoPlay: true,
-        showCompletedEpisodes: true
+        autoPlay: userPrefs.autoPlay !== undefined ? userPrefs.autoPlay : true,
+        showCompletedEpisodes: userPrefs.showCompletedEpisodes !== undefined ? userPrefs.showCompletedEpisodes : true
       });
       
       // Ustaw wybrane serie
@@ -194,7 +193,7 @@ const UserProfile = () => {
           </div>
         </div>
 
-        {/* Preferencje odtwarzania – pozostawiono tylko prędkość; autoplay i pokazuj ukończone usunięto */}
+        {/* Preferencje odtwarzania */}
         <div className={`${isDarkMode ? 'bg-dark-surface' : 'bg-white'} rounded-lg p-6 mb-6 shadow-lg`}>
           <h2 className="text-xl font-semibold text-light-text dark:text-white mb-4">
             Preferencje odtwarzania
@@ -220,6 +219,25 @@ const UserProfile = () => {
                 <option value="1.5">1.5x</option>
                 <option value="2">2x</option>
               </select>
+            </div>
+            
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={preferences.autoPlay}
+                  onChange={(e) => setPreferences({ ...preferences, autoPlay: e.target.checked })}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <div>
+                  <span className="text-sm font-medium text-light-text dark:text-gray-300">
+                    Automatyczne odtwarzanie
+                  </span>
+                  <p className="text-xs text-light-textSecondary dark:text-gray-400">
+                    Automatycznie odtwarzaj następny odcinek po zakończeniu bieżącego (jak Netflix)
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </div>

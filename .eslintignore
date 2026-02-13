@@ -1,0 +1,9 @@
+dist/
+coverage/
+playwright-report/
+playwright/test-results/
+**/test-results/
+public/
+
+
+

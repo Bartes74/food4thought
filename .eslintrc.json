@@ -1,0 +1,53 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2021,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "jsx": true
+    }
+  },
+  "plugins": [
+    "react",
+    "react-hooks"
+  ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended"
+  ],
+  "settings": {
+    "react": {
+      "version": "detect"
+    }
+  },
+  "rules": {
+    "no-console": "off",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "react/prop-types": "off",
+    "no-empty": ["error", { "allowEmptyCatch": true }]
+  },
+  "overrides": [
+    {
+      "files": ["**/__tests__/**", "**/*.spec.js", "**/global-setup.js"],
+      "env": { "jest": true },
+      "rules": {
+        "no-undef": "off",
+        "no-unused-expressions": "off",
+        "no-empty": "off"
+      }
+    },
+    {
+      "files": ["src/setupTests.js"],
+      "env": { "jest": true },
+      "rules": {
+        "no-undef": "off"
+      }
+    }
+  ]
+}

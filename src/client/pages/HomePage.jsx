@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
 import { useTheme } from '../contexts/ThemeContext'
@@ -12,6 +12,7 @@ const HomePage = () => {
   const { user } = useAuth()
   const { t, formatDate } = useLanguage()
   const { isDarkMode } = useTheme()
+  const location = useLocation()
   
   const [series, setSeries] = useState([])
   const [episodes, setEpisodes] = useState({ new: [], inProgress: [], completed: [] })
@@ -20,7 +21,6 @@ const HomePage = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [selectedSeriesId, setSelectedSeriesId] = useState(null)
-  const [autoStartId, setAutoStartId] = useState(null)
 
   
   // State dla wyszukiwarki
@@ -73,6 +73,29 @@ const HomePage = () => {
       window.removeEventListener('episode-rated', handleEpisodeUpdate);
     };
   }, [])
+
+  // Handle navigation state from notifications
+  useEffect(() => {
+    if (location.state?.autoStartEpisode) {
+      const episodeId = location.state.autoStartEpisode;
+      
+      // Load the episode
+      loadEpisodeDetails(episodeId);
+      
+      // Clear the navigation state
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    if (location.state?.selectedSeries) {
+      const seriesId = location.state.selectedSeries;
+      
+      // Set the selected series filter
+      setSelectedSeriesId(parseInt(seriesId));
+      
+      // Clear the navigation state
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location.state]);
 
   // Dodaj useEffect który będzie pobierał informacje o serii
   useEffect(() => {
@@ -426,7 +449,6 @@ const HomePage = () => {
   }
 
   const handleEpisodeSelect = (episodeId) => {
-    setAutoStartId(episodeId)
     loadEpisodeDetails(episodeId)
   }
 
@@ -493,8 +515,6 @@ const HomePage = () => {
             seriesInfo={seriesInfo}
             onRatingChange={fetchData}
             onEpisodeChange={handleEpisodeChange}
-            requestedAutoStartId={autoStartId}
-            onAutoStartConsumed={() => setAutoStartId(null)}
           />
         </section>
 
